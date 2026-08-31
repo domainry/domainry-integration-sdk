@@ -8,16 +8,18 @@ import (
 const IntegrationHTTPSurfaceContractVersion = "domainry-integration-http-surface-v1"
 
 type HTTPRouteContract struct {
-	Pattern             string   `json:"pattern"`
-	Exposures           []string `json:"exposures"`
-	Authentication      string   `json:"authentication"`
-	Permission          string   `json:"permission,omitempty"`
-	AnyPermissions      []string `json:"any_permissions,omitempty"`
-	PrincipalOnly       bool     `json:"principal_only,omitempty"`
-	EffectClass         string   `json:"effect_class"`
-	HighRiskPolicy      string   `json:"high_risk_policy"`
-	IdempotencyDecision string   `json:"idempotency_decision"`
-	AuditClass          string   `json:"audit_class"`
+	Pattern              string   `json:"pattern"`
+	BrowserClientPackage string   `json:"browser_client_package,omitempty"`
+	BrowserClientMethod  string   `json:"browser_client_method,omitempty"`
+	Exposures            []string `json:"exposures"`
+	Authentication       string   `json:"authentication"`
+	Permission           string   `json:"permission,omitempty"`
+	AnyPermissions       []string `json:"any_permissions,omitempty"`
+	PrincipalOnly        bool     `json:"principal_only,omitempty"`
+	EffectClass          string   `json:"effect_class"`
+	HighRiskPolicy       string   `json:"high_risk_policy"`
+	IdempotencyDecision  string   `json:"idempotency_decision"`
+	AuditClass           string   `json:"audit_class"`
 }
 
 type HTTPSurfaceContract struct {
@@ -43,58 +45,58 @@ func IntegrationHTTPSurfaceContract() HTTPSurfaceContract {
 }
 
 func integrationHTTPRoutes() []HTTPRouteContract {
-	admin := func(pattern string) HTTPRouteContract {
-		return integrationHTTPRoute(pattern, []string{"tenant_admin"}, "authenticated", "", []string{"workspace.admin"}, false)
+	admin := func(pattern, browserClientMethod string) HTTPRouteContract {
+		return integrationHTTPRoute(pattern, browserClientMethod, []string{"tenant_admin"}, "authenticated", "", []string{"workspace.admin"}, false)
 	}
-	user := func(pattern string) HTTPRouteContract {
-		return integrationHTTPRoute(pattern, []string{"public"}, "authenticated", "", nil, true)
+	user := func(pattern, browserClientMethod string) HTTPRouteContract {
+		return integrationHTTPRoute(pattern, browserClientMethod, []string{"public"}, "authenticated", "", nil, true)
 	}
 	public := func(pattern string) HTTPRouteContract {
-		return integrationHTTPRoute(pattern, []string{"public"}, "anonymous", "", nil, false)
+		return integrationHTTPRoute(pattern, "", []string{"public"}, "anonymous", "", nil, false)
 	}
 	return []HTTPRouteContract{
-		admin("GET /tenant-admin/integrations/catalog"),
-		admin("GET /tenant-admin/integrations/connectors"),
-		admin("GET /tenant-admin/integrations/connections"),
-		admin("GET /tenant-admin/integrations/connections/{connectionKey}"),
-		admin("POST /tenant-admin/integrations/connections/{connectionKey}/validate"),
-		admin("PUT /tenant-admin/integrations/connections/{connectionKey}"),
-		admin("DELETE /tenant-admin/integrations/connections/{connectionKey}"),
-		admin("POST /tenant-admin/integrations/connections/{connectionKey}/disable"),
-		admin("POST /tenant-admin/integrations/connections/{connectionKey}/test-operation"),
-		admin("GET /tenant-admin/integrations/secrets"),
-		admin("PUT /tenant-admin/integrations/secrets/{secretKey}"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/disable"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/rotate"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/expire"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/revoke"),
-		admin("GET /tenant-admin/integrations/api-keys"),
-		admin("POST /tenant-admin/integrations/api-keys"),
-		admin("POST /tenant-admin/integrations/api-keys/{apiKey}/disable"),
-		admin("POST /tenant-admin/integrations/api-keys/{apiKey}/rotate"),
-		admin("GET /tenant-admin/integrations/external-identities"),
-		admin("PUT /tenant-admin/integrations/external-identities/{identityKey}"),
-		admin("POST /tenant-admin/integrations/external-identities/{identityKey}/disable"),
-		admin("POST /tenant-admin/integrations/external-identities/resolve"),
-		admin("GET /tenant-admin/integrations/webhook-subscriptions"),
-		admin("PUT /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}"),
-		admin("DELETE /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}"),
-		admin("POST /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}/disable"),
-		user("GET /business/notifications/web-push/readiness"),
-		user("GET /business/notifications/web-push/subscriptions"),
-		user("PUT /business/notifications/web-push/subscriptions/{subscriptionID}"),
-		user("POST /business/notifications/web-push/subscriptions/{subscriptionID}/revoke"),
-		admin("POST /integrations/web-push/subscriptions/cleanup-expired"),
-		admin("GET /tenant-admin/integrations/invocations"),
-		admin("GET /tenant-admin/integrations/invocations/{invocationID}"),
-		admin("GET /tenant-admin/integrations/events"),
-		admin("GET /tenant-admin/integrations/events/{eventID}"),
-		admin("POST /tenant-admin/integrations/events/{eventID}/replay"),
+		admin("GET /tenant-admin/integrations/catalog", "catalog"),
+		admin("GET /tenant-admin/integrations/connectors", "connectors"),
+		admin("GET /tenant-admin/integrations/connections", "listConnections"),
+		admin("GET /tenant-admin/integrations/connections/{connectionKey}", "getConnection"),
+		admin("POST /tenant-admin/integrations/connections/{connectionKey}/validate", "validateConnection"),
+		admin("PUT /tenant-admin/integrations/connections/{connectionKey}", "upsertConnection"),
+		admin("DELETE /tenant-admin/integrations/connections/{connectionKey}", "deleteConnection"),
+		admin("POST /tenant-admin/integrations/connections/{connectionKey}/disable", "disableConnection"),
+		admin("POST /tenant-admin/integrations/connections/{connectionKey}/test-operation", "testOperation"),
+		admin("GET /tenant-admin/integrations/secrets", "listSecrets"),
+		admin("PUT /tenant-admin/integrations/secrets/{secretKey}", "upsertSecret"),
+		admin("POST /tenant-admin/integrations/secrets/{secretKey}/disable", "disableSecret"),
+		admin("POST /tenant-admin/integrations/secrets/{secretKey}/rotate", "rotateSecret"),
+		admin("POST /tenant-admin/integrations/secrets/{secretKey}/expire", "expireSecret"),
+		admin("POST /tenant-admin/integrations/secrets/{secretKey}/revoke", "revokeSecret"),
+		admin("GET /tenant-admin/integrations/api-keys", "listAPIKeys"),
+		admin("POST /tenant-admin/integrations/api-keys", "createAPIKey"),
+		admin("POST /tenant-admin/integrations/api-keys/{apiKey}/disable", "disableAPIKey"),
+		admin("POST /tenant-admin/integrations/api-keys/{apiKey}/rotate", "rotateAPIKey"),
+		admin("GET /tenant-admin/integrations/external-identities", "listExternalIdentities"),
+		admin("PUT /tenant-admin/integrations/external-identities/{identityKey}", "upsertExternalIdentity"),
+		admin("POST /tenant-admin/integrations/external-identities/{identityKey}/disable", "disableExternalIdentity"),
+		admin("POST /tenant-admin/integrations/external-identities/resolve", "resolveExternalIdentity"),
+		admin("GET /tenant-admin/integrations/webhook-subscriptions", "listWebhookSubscriptions"),
+		admin("PUT /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}", "upsertWebhookSubscription"),
+		admin("DELETE /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}", "deleteWebhookSubscription"),
+		admin("POST /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}/disable", "disableWebhookSubscription"),
+		user("GET /business/notifications/web-push/readiness", "webPushReadiness"),
+		user("GET /business/notifications/web-push/subscriptions", "webPushSubscriptions"),
+		user("PUT /business/notifications/web-push/subscriptions/{subscriptionID}", "upsertWebPushSubscription"),
+		user("POST /business/notifications/web-push/subscriptions/{subscriptionID}/revoke", "revokeWebPushSubscription"),
+		admin("POST /integrations/web-push/subscriptions/cleanup-expired", "cleanupExpiredWebPushSubscriptions"),
+		admin("GET /tenant-admin/integrations/invocations", "listInvocations"),
+		admin("GET /tenant-admin/integrations/invocations/{invocationID}", "getInvocation"),
+		admin("GET /tenant-admin/integrations/events", "listEvents"),
+		admin("GET /tenant-admin/integrations/events/{eventID}", "getEvent"),
+		admin("POST /tenant-admin/integrations/events/{eventID}/replay", "replayEvent"),
 		public("POST /integrations/webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
 	}
 }
 
-func integrationHTTPRoute(pattern string, exposures []string, authentication, permission string, anyPermissions []string, principalOnly bool) HTTPRouteContract {
+func integrationHTTPRoute(pattern, browserClientMethod string, exposures []string, authentication, permission string, anyPermissions []string, principalOnly bool) HTTPRouteContract {
 	method, path, _ := strings.Cut(strings.TrimSpace(pattern), " ")
 	effect, idempotency, auditClass := "write", "caller_key_or_natural_resource_identity", "integration_owner_mutation"
 	if method == "GET" || method == "HEAD" || method == "OPTIONS" {
@@ -104,10 +106,18 @@ func integrationHTTPRoute(pattern string, exposures []string, authentication, pe
 		idempotency, auditClass = "provider_event_identity", "integration_webhook_ingress"
 	}
 	return HTTPRouteContract{
-		Pattern: pattern, Exposures: append([]string(nil), exposures...), Authentication: authentication,
+		Pattern: pattern, BrowserClientPackage: integrationBrowserClientPackage(browserClientMethod), BrowserClientMethod: browserClientMethod,
+		Exposures: append([]string(nil), exposures...), Authentication: authentication,
 		Permission: permission, AnyPermissions: append([]string(nil), anyPermissions...), PrincipalOnly: principalOnly,
 		EffectClass: effect, HighRiskPolicy: "none", IdempotencyDecision: idempotency, AuditClass: auditClass,
 	}
+}
+
+func integrationBrowserClientPackage(method string) string {
+	if strings.TrimSpace(method) == "" {
+		return ""
+	}
+	return "@domainry/integration-client"
 }
 
 func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string]any {
@@ -129,6 +139,10 @@ func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string
 					}},
 				},
 			},
+		}
+		if route.BrowserClientMethod != "" {
+			operation["x-domainry-owner-client-package"] = route.BrowserClientPackage
+			operation["x-domainry-owner-client-method"] = route.BrowserClientMethod
 		}
 		if route.Authentication == "anonymous" {
 			operation["security"] = []any{}
