@@ -42,7 +42,16 @@ func (d Descriptor) Validate() error {
 	if d.Mode != DeploymentModeModule && d.Mode != DeploymentModeSaaS {
 		return fmt.Errorf("invalid Integration deployment mode %q", d.Mode)
 	}
-	required := map[string]bool{"catalog.read": false, "requirements.connections.sync": false, "delivery.accept": false, "delivery.query": false, "web_push_subscriptions.manage": false}
+	required := map[string]bool{
+		"catalog.read": false, "requirements.connections.sync": false,
+		"delivery.accept": false, "delivery.query": false,
+		"web_push_subscriptions.manage": false,
+		"management.connections":        false, "management.secrets": false,
+		"management.api_keys": false, "management.external_identities": false,
+		"management.webhook_subscriptions": false,
+		"operations.call":                  false, "operations.invocations.query": false,
+		"inbound.webhooks.accept": false, "inbound.events.query": false,
+	}
 	for _, capability := range d.Capabilities {
 		if _, ok := required[strings.TrimSpace(capability)]; ok {
 			required[strings.TrimSpace(capability)] = true
@@ -99,6 +108,7 @@ func (r ConnectionRequirement) Validate() error {
 
 type Requirements interface {
 	SynchronizeConnections(context.Context, []ConnectionRequirement) error
+	SynchronizeEventMappings(context.Context, []EventMappingRequirement) error
 }
 
 // WebPushSubscription is an Integration-owned browser delivery target. Secret
@@ -188,6 +198,20 @@ type Binding interface {
 	Requirements() Requirements
 	Delivery() Delivery
 	Close(context.Context) error
+}
+
+// LocalWorkers is exposed only by an embedded Integration Module. A SaaS
+// deployment owns these loops in its own process and remote bindings do not
+// expose them.
+type LocalWorkers interface {
+	ProcessDueEvents(context.Context, int) (int, error)
+	ProcessDueProviderTasks(context.Context, int) (int, error)
+	ProcessDueReconciliations(context.Context, int) (int, error)
+	ProcessDueCredentialExpirations(context.Context, int) (int, error)
+}
+
+type LocalWorkerBinding interface {
+	LocalWorkers() (LocalWorkers, bool)
 }
 
 type WebPushBinding interface {

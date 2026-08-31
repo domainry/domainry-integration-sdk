@@ -4,6 +4,7 @@ import (
 	"context"
 
 	connector "github.com/domainry/domainry-connector-sdk"
+	integrationsdk "github.com/domainry/domainry-integration-sdk"
 	ormmigration "github.com/domainry/domainry-orm/migration"
 	"github.com/domainry/domainry-orm/sqlhost"
 )
@@ -31,6 +32,7 @@ type ProviderRegistry interface {
 }
 
 type SecretMaterialCipher interface {
+	EncryptSecretMaterial(ctx context.Context, workspaceID, secretKey, plaintext string) (string, error)
 	DecryptSecretMaterial(ctx context.Context, workspaceID, secretKey, ciphertext string) (string, error)
 }
 
@@ -40,4 +42,5 @@ type Host interface {
 	Migrations() MigrationRegistrar
 	Providers() ProviderRegistry
 	SecretCipher() SecretMaterialCipher
+	RuntimeTriggers() integrationsdk.TriggerSink
 }

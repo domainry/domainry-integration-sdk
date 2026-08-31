@@ -4,11 +4,33 @@ Deployment-neutral contracts between Domainry Runtime and Integration running as
 
 ## Package layout
 
-- The root package is the stable `Factory`, `Binding`, Catalog, Requirements, Delivery, and Web Push entrypoint.
-- `modulehost` describes database, dialect, migration, provider registry, and secret-cipher capabilities borrowed by an embedded module.
+- The root package is the stable `Factory`, `Binding`, Catalog projection,
+  Requirements, Delivery, Management, Operations, inbound Event, Runtime
+  Trigger receipt, local-worker, and Web Push entrypoint.
+- `IntegrationAuthoringDomain` is the canonical Integration capability
+  disclosure, including schemas, references, examples, repair errors and
+  source symbols. `SpecializeIntegrationAuthoringCapability` derives
+  Connector-specific examples from the source-owned Connector definition.
+- `IntegrationHTTPSurfaceContract` is the canonical Module HTTP route,
+  governance and OpenAPI contract. Runtime and Plane may aggregate it, but
+  must not re-author Integration paths or schemas.
+- `modulehost` describes database, dialect, migration, provider registry, secret-cipher, and Runtime Trigger capabilities borrowed by an embedded module.
 - `remote` contains the SaaS client implementation.
 - `saashost` describes SaaS composition.
+- `browser` publishes `@domainry/integration-client` for Integration-owned
+  admin activity and Web Push surfaces; these APIs do not belong to the
+  Runtime browser client.
 
 The SDK intentionally has no public `persistence` package. Integration-owned tables and DML stay in the Integration implementation; Runtime consumes business capabilities through the root Binding.
 
-Embedded modules use the host database, transaction boundary, SQL dialect, migration lock, and the host-owned `_schema_migrations` ledger. Run `go test ./...` before publishing an immutable SDK version.
+Connector definitions and Provider schemas remain source-owned by
+`domainry-connectors`. The Integration Catalog port exposes their materialized
+projection without transferring ownership to Integration or Runtime.
+
+Embedded modules use the host database, transaction boundary, SQL dialect,
+migration lock, and the host-owned `_schema_migrations` ledger.
+
+The contract tests reject Runtime source paths, retired
+`/operations/integrations/*` routes and Integration outbox capability keys.
+Run `go test ./...` and `npm test --prefix browser` before publishing an
+immutable SDK version.
