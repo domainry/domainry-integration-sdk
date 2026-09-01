@@ -5,17 +5,36 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/domainry/domainry-foundation/modulecapability"
+	"github.com/domainry/domainry-foundation/modulecapability/contracttest"
 	integrationsdk "github.com/domainry/domainry-integration-sdk"
 )
 
 func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	requirementsSeen := false
 	webPushCalls := map[string]bool{}
+	fixture, err := contracttest.NewFixtureBinding("integration")
+	if err != nil {
+		t.Fatal(err)
+	}
+	capabilitySummary, err := fixture.CapabilitySummary(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	capabilityHandler, err := modulecapability.NewHTTPHandler(fixture, func(*http.Request) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("X-Domainry-Runtime-ID") != "runtime-a" || request.Header.Get("Authorization") != "Bearer secret" {
 			t.Fatalf("headers = %#v", request.Header)
+		}
+		if strings.HasPrefix(request.URL.Path, modulecapability.HTTPPrefix) {
+			capabilityHandler.ServeHTTP(response, request)
+			return
 		}
 		if request.Method == http.MethodPost && request.URL.Path == "/v1/deliveries" {
 			var delivery integrationsdk.DeliveryRequest
@@ -75,10 +94,11 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	}))
 	defer server.Close()
 
-	binding, err := NewFactory(Options{BaseURL: server.URL, Token: "secret", HTTPClient: server.Client()}).OpenSaaS(context.Background(), integrationsdk.ApplicationRef{RuntimeID: "runtime-a"}, nil)
+	binding, err := NewFactory(Options{BaseURL: server.URL, Token: "secret", HTTPClient: server.Client(), CapabilityContractSHA256: capabilitySummary.Identity.ContractSHA256}).OpenSaaS(context.Background(), integrationsdk.ApplicationRef{RuntimeID: "runtime-a"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	contracttest.VerifyBinding(t, binding)
 	if err := binding.Requirements().SynchronizeConnections(context.Background(), []integrationsdk.ConnectionRequirement{{Key: "primary", WorkspaceID: "workspace-a", ConnectorKey: "crm", ProviderKey: "probe", Config: json.RawMessage(`{}`)}}); err != nil {
 		t.Fatal(err)
 	}

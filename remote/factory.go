@@ -10,14 +10,16 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/domainry/domainry-foundation/modulecapability"
 	integrationsdk "github.com/domainry/domainry-integration-sdk"
 	"github.com/domainry/domainry-integration-sdk/saashost"
 )
 
 type Options struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
+	BaseURL                  string
+	Token                    string
+	HTTPClient               *http.Client
+	CapabilityContractSHA256 string
 }
 
 type Factory struct{ options Options }
@@ -28,8 +30,11 @@ func (*Factory) DeploymentMode() integrationsdk.DeploymentMode {
 	return integrationsdk.DeploymentModeSaaS
 }
 
-func (f *Factory) OpenSaaS(_ context.Context, application integrationsdk.ApplicationRef, _ saashost.Host) (integrationsdk.Binding, error) {
+func (f *Factory) OpenSaaS(ctx context.Context, application integrationsdk.ApplicationRef, _ saashost.Host) (integrationsdk.Binding, error) {
 	if err := application.Validate(); err != nil {
+		return nil, err
+	}
+	if err := modulecapability.ValidateRemoteExpectation("integration", f.options.CapabilityContractSHA256); err != nil {
 		return nil, err
 	}
 	base, err := url.Parse(strings.TrimSpace(f.options.BaseURL))
@@ -41,10 +46,34 @@ func (f *Factory) OpenSaaS(_ context.Context, application integrationsdk.Applica
 		client = http.DefaultClient
 	}
 	transport := &remoteClient{base: base, token: strings.TrimSpace(f.options.Token), runtimeID: application.RuntimeID, client: client}
-	return &binding{client: transport}, nil
+	capability, err := modulecapability.OpenRemote(ctx, modulecapability.RemoteConfig{
+		BaseURL: strings.TrimRight(base.String(), "/"), Client: client, ExpectedModuleKey: "integration", ExpectedContractSHA256: f.options.CapabilityContractSHA256,
+		Authorize: func(request *http.Request) error {
+			request.Header.Set("Authorization", "Bearer "+transport.token)
+			request.Header.Set("X-Domainry-Runtime-ID", transport.runtimeID)
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &binding{client: transport, capability: capability}, nil
 }
 
-type binding struct{ client *remoteClient }
+type binding struct {
+	client     *remoteClient
+	capability modulecapability.Binding
+}
+
+func (b *binding) CapabilitySummary(ctx context.Context) (modulecapability.ModuleSummary, error) {
+	return b.capability.CapabilitySummary(ctx)
+}
+func (b *binding) CapabilityCategory(ctx context.Context, key string) (modulecapability.CategoryDocument, error) {
+	return b.capability.CapabilityCategory(ctx, key)
+}
+func (b *binding) ValidateCapabilityCandidate(ctx context.Context, request modulecapability.ValidationRequest) (modulecapability.ValidationResult, error) {
+	return b.capability.ValidateCapabilityCandidate(ctx, request)
+}
 
 func (*binding) Descriptor() integrationsdk.Descriptor {
 	return integrationsdk.Descriptor{ProtocolVersion: integrationsdk.ProtocolVersionV1, Mode: integrationsdk.DeploymentModeSaaS, Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query"}}
