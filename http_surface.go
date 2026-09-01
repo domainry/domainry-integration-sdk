@@ -3,23 +3,69 @@ package integrationsdk
 import (
 	"strings"
 	"unicode"
+
+	actioncontract "github.com/domainry/domainry-foundation/action"
 )
 
-const IntegrationHTTPSurfaceContractVersion = "domainry-integration-http-surface-v1"
+const IntegrationHTTPSurfaceContractVersion = "domainry-integration-http-surface-v2"
+
+const (
+	CapabilityIntegrationConnections   = "integration.connections"
+	CapabilityIntegrationCredentials   = "integration.credentials"
+	CapabilityIntegrationOperations    = "integration.operations"
+	CapabilityIntegrationSubscriptions = "integration.subscriptions"
+
+	ActionIntegrationCatalogRead                        = "integration.catalog.read"
+	ActionIntegrationConnectorsList                     = "integration.connectors.list"
+	ActionIntegrationConnectionsList                    = "integration.connections.list"
+	ActionIntegrationConnectionsGet                     = "integration.connections.get"
+	ActionIntegrationConnectionsValidate                = "integration.connections.validate"
+	ActionIntegrationConnectionsUpsert                  = "integration.connections.upsert"
+	ActionIntegrationConnectionsDelete                  = "integration.connections.delete"
+	ActionIntegrationConnectionsDisable                 = "integration.connections.disable"
+	ActionIntegrationConnectionsTestOperation           = "integration.connections.test_operation"
+	ActionIntegrationSecretsList                        = "integration.secrets.list"
+	ActionIntegrationSecretsUpsert                      = "integration.secrets.upsert"
+	ActionIntegrationSecretsDisable                     = "integration.secrets.disable"
+	ActionIntegrationSecretsRotate                      = "integration.secrets.rotate"
+	ActionIntegrationSecretsExpire                      = "integration.secrets.expire"
+	ActionIntegrationSecretsRevoke                      = "integration.secrets.revoke"
+	ActionIntegrationAPIKeysList                        = "integration.api_keys.list"
+	ActionIntegrationAPIKeysCreate                      = "integration.api_keys.create"
+	ActionIntegrationAPIKeysDisable                     = "integration.api_keys.disable"
+	ActionIntegrationAPIKeysRotate                      = "integration.api_keys.rotate"
+	ActionIntegrationExternalIdentitiesList             = "integration.external_identities.list"
+	ActionIntegrationExternalIdentitiesUpsert           = "integration.external_identities.upsert"
+	ActionIntegrationExternalIdentitiesDisable          = "integration.external_identities.disable"
+	ActionIntegrationExternalIdentitiesResolve          = "integration.external_identities.resolve"
+	ActionIntegrationWebhookSubscriptionsList           = "integration.webhook_subscriptions.list"
+	ActionIntegrationWebhookSubscriptionsUpsert         = "integration.webhook_subscriptions.upsert"
+	ActionIntegrationWebhookSubscriptionsDelete         = "integration.webhook_subscriptions.delete"
+	ActionIntegrationWebhookSubscriptionsDisable        = "integration.webhook_subscriptions.disable"
+	ActionIntegrationWebPushReadiness                   = "integration.web_push.readiness"
+	ActionIntegrationWebPushSubscriptionsList           = "integration.web_push_subscriptions.list"
+	ActionIntegrationWebPushSubscriptionsUpsert         = "integration.web_push_subscriptions.upsert"
+	ActionIntegrationWebPushSubscriptionsRevoke         = "integration.web_push_subscriptions.revoke"
+	ActionIntegrationWebPushSubscriptionsCleanupExpired = "integration.web_push_subscriptions.cleanup_expired"
+	ActionIntegrationInvocationsList                    = "integration.invocations.list"
+	ActionIntegrationInvocationsGet                     = "integration.invocations.get"
+	ActionIntegrationEventsList                         = "integration.events.list"
+	ActionIntegrationEventsGet                          = "integration.events.get"
+	ActionIntegrationEventsReplay                       = "integration.events.replay"
+	ActionIntegrationWebhooksIngest                     = "integration.webhooks.ingest"
+)
 
 type HTTPRouteContract struct {
-	Pattern              string   `json:"pattern"`
-	BrowserClientPackage string   `json:"browser_client_package,omitempty"`
-	BrowserClientMethod  string   `json:"browser_client_method,omitempty"`
-	Exposures            []string `json:"exposures"`
-	Authentication       string   `json:"authentication"`
-	Permission           string   `json:"permission,omitempty"`
-	AnyPermissions       []string `json:"any_permissions,omitempty"`
-	PrincipalOnly        bool     `json:"principal_only,omitempty"`
-	EffectClass          string   `json:"effect_class"`
-	HighRiskPolicy       string   `json:"high_risk_policy"`
-	IdempotencyDecision  string   `json:"idempotency_decision"`
-	AuditClass           string   `json:"audit_class"`
+	Action               actioncontract.ActionDefinition `json:"action"`
+	BrowserClientPackage string                          `json:"browser_client_package,omitempty"`
+	BrowserClientMethod  string                          `json:"browser_client_method,omitempty"`
+}
+
+func (route HTTPRouteContract) Pattern() string {
+	if route.Action.HTTP == nil {
+		return ""
+	}
+	return route.Action.HTTP.Method + " " + route.Action.HTTP.RouteTemplate
 }
 
 type HTTPSurfaceContract struct {
@@ -45,71 +91,102 @@ func IntegrationHTTPSurfaceContract() HTTPSurfaceContract {
 }
 
 func integrationHTTPRoutes() []HTTPRouteContract {
-	admin := func(pattern, browserClientMethod string) HTTPRouteContract {
-		return integrationHTTPRoute(pattern, browserClientMethod, []string{"tenant_admin"}, "authenticated", "", []string{"workspace.admin"}, false)
+	admin := func(key, pattern, browserClientMethod string) HTTPRouteContract {
+		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposureTenantAdmin}, "permission")
 	}
-	user := func(pattern, browserClientMethod string) HTTPRouteContract {
-		return integrationHTTPRoute(pattern, browserClientMethod, []string{"public"}, "authenticated", "", nil, true)
+	user := func(key, pattern, browserClientMethod string) HTTPRouteContract {
+		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposurePublic}, "principal")
 	}
-	public := func(pattern string) HTTPRouteContract {
-		return integrationHTTPRoute(pattern, "", []string{"public"}, "anonymous", "", nil, false)
+	public := func(key, pattern string) HTTPRouteContract {
+		return integrationHTTPRoute(key, pattern, "", []actioncontract.Exposure{actioncontract.ExposurePublic}, "anonymous")
 	}
 	return []HTTPRouteContract{
-		admin("GET /tenant-admin/integrations/catalog", "catalog"),
-		admin("GET /tenant-admin/integrations/connectors", "connectors"),
-		admin("GET /tenant-admin/integrations/connections", "listConnections"),
-		admin("GET /tenant-admin/integrations/connections/{connectionKey}", "getConnection"),
-		admin("POST /tenant-admin/integrations/connections/{connectionKey}/validate", "validateConnection"),
-		admin("PUT /tenant-admin/integrations/connections/{connectionKey}", "upsertConnection"),
-		admin("DELETE /tenant-admin/integrations/connections/{connectionKey}", "deleteConnection"),
-		admin("POST /tenant-admin/integrations/connections/{connectionKey}/disable", "disableConnection"),
-		admin("POST /tenant-admin/integrations/connections/{connectionKey}/test-operation", "testOperation"),
-		admin("GET /tenant-admin/integrations/secrets", "listSecrets"),
-		admin("PUT /tenant-admin/integrations/secrets/{secretKey}", "upsertSecret"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/disable", "disableSecret"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/rotate", "rotateSecret"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/expire", "expireSecret"),
-		admin("POST /tenant-admin/integrations/secrets/{secretKey}/revoke", "revokeSecret"),
-		admin("GET /tenant-admin/integrations/api-keys", "listAPIKeys"),
-		admin("POST /tenant-admin/integrations/api-keys", "createAPIKey"),
-		admin("POST /tenant-admin/integrations/api-keys/{apiKey}/disable", "disableAPIKey"),
-		admin("POST /tenant-admin/integrations/api-keys/{apiKey}/rotate", "rotateAPIKey"),
-		admin("GET /tenant-admin/integrations/external-identities", "listExternalIdentities"),
-		admin("PUT /tenant-admin/integrations/external-identities/{identityKey}", "upsertExternalIdentity"),
-		admin("POST /tenant-admin/integrations/external-identities/{identityKey}/disable", "disableExternalIdentity"),
-		admin("POST /tenant-admin/integrations/external-identities/resolve", "resolveExternalIdentity"),
-		admin("GET /tenant-admin/integrations/webhook-subscriptions", "listWebhookSubscriptions"),
-		admin("PUT /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}", "upsertWebhookSubscription"),
-		admin("DELETE /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}", "deleteWebhookSubscription"),
-		admin("POST /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}/disable", "disableWebhookSubscription"),
-		user("GET /business/notifications/web-push/readiness", "webPushReadiness"),
-		user("GET /business/notifications/web-push/subscriptions", "webPushSubscriptions"),
-		user("PUT /business/notifications/web-push/subscriptions/{subscriptionID}", "upsertWebPushSubscription"),
-		user("POST /business/notifications/web-push/subscriptions/{subscriptionID}/revoke", "revokeWebPushSubscription"),
-		admin("POST /integrations/web-push/subscriptions/cleanup-expired", "cleanupExpiredWebPushSubscriptions"),
-		admin("GET /tenant-admin/integrations/invocations", "listInvocations"),
-		admin("GET /tenant-admin/integrations/invocations/{invocationID}", "getInvocation"),
-		admin("GET /tenant-admin/integrations/events", "listEvents"),
-		admin("GET /tenant-admin/integrations/events/{eventID}", "getEvent"),
-		admin("POST /tenant-admin/integrations/events/{eventID}/replay", "replayEvent"),
-		public("POST /integrations/webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
+		admin(ActionIntegrationCatalogRead, "GET /tenant-admin/integrations/catalog", "catalog"),
+		admin(ActionIntegrationConnectorsList, "GET /tenant-admin/integrations/connectors", "connectors"),
+		admin(ActionIntegrationConnectionsList, "GET /tenant-admin/integrations/connections", "listConnections"),
+		admin(ActionIntegrationConnectionsGet, "GET /tenant-admin/integrations/connections/{connectionKey}", "getConnection"),
+		admin(ActionIntegrationConnectionsValidate, "POST /tenant-admin/integrations/connections/{connectionKey}/validate", "validateConnection"),
+		admin(ActionIntegrationConnectionsUpsert, "PUT /tenant-admin/integrations/connections/{connectionKey}", "upsertConnection"),
+		admin(ActionIntegrationConnectionsDelete, "DELETE /tenant-admin/integrations/connections/{connectionKey}", "deleteConnection"),
+		admin(ActionIntegrationConnectionsDisable, "POST /tenant-admin/integrations/connections/{connectionKey}/disable", "disableConnection"),
+		admin(ActionIntegrationConnectionsTestOperation, "POST /tenant-admin/integrations/connections/{connectionKey}/test-operation", "testOperation"),
+		admin(ActionIntegrationSecretsList, "GET /tenant-admin/integrations/secrets", "listSecrets"),
+		admin(ActionIntegrationSecretsUpsert, "PUT /tenant-admin/integrations/secrets/{secretKey}", "upsertSecret"),
+		admin(ActionIntegrationSecretsDisable, "POST /tenant-admin/integrations/secrets/{secretKey}/disable", "disableSecret"),
+		admin(ActionIntegrationSecretsRotate, "POST /tenant-admin/integrations/secrets/{secretKey}/rotate", "rotateSecret"),
+		admin(ActionIntegrationSecretsExpire, "POST /tenant-admin/integrations/secrets/{secretKey}/expire", "expireSecret"),
+		admin(ActionIntegrationSecretsRevoke, "POST /tenant-admin/integrations/secrets/{secretKey}/revoke", "revokeSecret"),
+		admin(ActionIntegrationAPIKeysList, "GET /tenant-admin/integrations/api-keys", "listAPIKeys"),
+		admin(ActionIntegrationAPIKeysCreate, "POST /tenant-admin/integrations/api-keys", "createAPIKey"),
+		admin(ActionIntegrationAPIKeysDisable, "POST /tenant-admin/integrations/api-keys/{apiKey}/disable", "disableAPIKey"),
+		admin(ActionIntegrationAPIKeysRotate, "POST /tenant-admin/integrations/api-keys/{apiKey}/rotate", "rotateAPIKey"),
+		admin(ActionIntegrationExternalIdentitiesList, "GET /tenant-admin/integrations/external-identities", "listExternalIdentities"),
+		admin(ActionIntegrationExternalIdentitiesUpsert, "PUT /tenant-admin/integrations/external-identities/{identityKey}", "upsertExternalIdentity"),
+		admin(ActionIntegrationExternalIdentitiesDisable, "POST /tenant-admin/integrations/external-identities/{identityKey}/disable", "disableExternalIdentity"),
+		admin(ActionIntegrationExternalIdentitiesResolve, "POST /tenant-admin/integrations/external-identities/resolve", "resolveExternalIdentity"),
+		admin(ActionIntegrationWebhookSubscriptionsList, "GET /tenant-admin/integrations/webhook-subscriptions", "listWebhookSubscriptions"),
+		admin(ActionIntegrationWebhookSubscriptionsUpsert, "PUT /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}", "upsertWebhookSubscription"),
+		admin(ActionIntegrationWebhookSubscriptionsDelete, "DELETE /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}", "deleteWebhookSubscription"),
+		admin(ActionIntegrationWebhookSubscriptionsDisable, "POST /tenant-admin/integrations/webhook-subscriptions/{subscriptionKey}/disable", "disableWebhookSubscription"),
+		user(ActionIntegrationWebPushReadiness, "GET /business/notifications/web-push/readiness", "webPushReadiness"),
+		user(ActionIntegrationWebPushSubscriptionsList, "GET /business/notifications/web-push/subscriptions", "webPushSubscriptions"),
+		user(ActionIntegrationWebPushSubscriptionsUpsert, "PUT /business/notifications/web-push/subscriptions/{subscriptionID}", "upsertWebPushSubscription"),
+		user(ActionIntegrationWebPushSubscriptionsRevoke, "POST /business/notifications/web-push/subscriptions/{subscriptionID}/revoke", "revokeWebPushSubscription"),
+		admin(ActionIntegrationWebPushSubscriptionsCleanupExpired, "POST /integrations/web-push/subscriptions/cleanup-expired", "cleanupExpiredWebPushSubscriptions"),
+		admin(ActionIntegrationInvocationsList, "GET /tenant-admin/integrations/invocations", "listInvocations"),
+		admin(ActionIntegrationInvocationsGet, "GET /tenant-admin/integrations/invocations/{invocationID}", "getInvocation"),
+		admin(ActionIntegrationEventsList, "GET /tenant-admin/integrations/events", "listEvents"),
+		admin(ActionIntegrationEventsGet, "GET /tenant-admin/integrations/events/{eventID}", "getEvent"),
+		admin(ActionIntegrationEventsReplay, "POST /tenant-admin/integrations/events/{eventID}/replay", "replayEvent"),
+		public(ActionIntegrationWebhooksIngest, "POST /integrations/webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
 	}
 }
 
-func integrationHTTPRoute(pattern, browserClientMethod string, exposures []string, authentication, permission string, anyPermissions []string, principalOnly bool) HTTPRouteContract {
+func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []actioncontract.Exposure, authorization string) HTTPRouteContract {
 	method, path, _ := strings.Cut(strings.TrimSpace(pattern), " ")
-	effect, idempotency, auditClass := "write", "caller_key_or_natural_resource_identity", "integration_owner_mutation"
+	effect, risk, idempotency, auditClass := actioncontract.EffectWrite, actioncontract.RiskMedium, "caller_key_or_natural_resource_identity", "integration_owner_mutation"
 	if method == "GET" || method == "HEAD" || method == "OPTIONS" {
-		effect, idempotency, auditClass = "read", "not_applicable", "integration_owner_read"
+		effect, risk, idempotency, auditClass = actioncontract.EffectRead, actioncontract.RiskLow, "not_applicable", "integration_owner_read"
 	}
 	if strings.HasPrefix(path, "/integrations/webhooks/") {
-		idempotency, auditClass = "provider_event_identity", "integration_webhook_ingress"
+		risk, idempotency, auditClass = actioncontract.RiskHigh, "provider_event_identity", "integration_webhook_ingress"
+	}
+	separator := strings.LastIndex(key, ".")
+	capabilityKey, capabilityLabel := integrationHTTPCapability(key)
+	label := strings.TrimSpace(browserClientMethod)
+	if label == "" {
+		label = key
+	}
+	definition := actioncontract.ActionDefinition{
+		Key: key, Owner: "module:integration", SourceKind: "module_surface", CapabilityKey: capabilityKey, CapabilityLabel: capabilityLabel,
+		OperationKey: key[separator+1:], OperationLabel: label, Label: label, Exposures: exposures,
+		HTTP: &actioncontract.HTTPBinding{Method: method, RouteTemplate: path}, EffectClass: effect, RiskLevel: risk,
+		IdempotencyDecision: idempotency, AuditClass: auditClass, LifecycleStatus: actioncontract.LifecycleActive,
+	}
+	switch authorization {
+	case "permission":
+		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationExactRolePermission}
+		definition.Permission = &actioncontract.PermissionDefinition{Key: key, Owner: definition.Owner, ResourceKey: key[:separator], ActionKey: key[separator+1:], Label: label, Category: "Integration", LifecycleStatus: actioncontract.LifecycleActive}
+	case "principal":
+		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationAuthenticatedPrincipal}
+	case "anonymous":
+		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationAnonymousProtocol, PolicyKey: "integration.webhook.signature"}
 	}
 	return HTTPRouteContract{
-		Pattern: pattern, BrowserClientPackage: integrationBrowserClientPackage(browserClientMethod), BrowserClientMethod: browserClientMethod,
-		Exposures: append([]string(nil), exposures...), Authentication: authentication,
-		Permission: permission, AnyPermissions: append([]string(nil), anyPermissions...), PrincipalOnly: principalOnly,
-		EffectClass: effect, HighRiskPolicy: "none", IdempotencyDecision: idempotency, AuditClass: auditClass,
+		Action: definition, BrowserClientPackage: integrationBrowserClientPackage(browserClientMethod), BrowserClientMethod: browserClientMethod,
+	}
+}
+
+func integrationHTTPCapability(key string) (string, string) {
+	switch {
+	case strings.HasPrefix(key, "integration.secrets."), strings.HasPrefix(key, "integration.api_keys."), strings.HasPrefix(key, "integration.external_identities."):
+		return CapabilityIntegrationCredentials, "Integration credentials"
+	case strings.HasPrefix(key, "integration.webhook_subscriptions."), strings.HasPrefix(key, "integration.web_push."), strings.HasPrefix(key, "integration.web_push_subscriptions."), strings.HasPrefix(key, "integration.webhooks."):
+		return CapabilityIntegrationSubscriptions, "Inbound and push subscriptions"
+	case strings.HasPrefix(key, "integration.invocations."), strings.HasPrefix(key, "integration.events."):
+		return CapabilityIntegrationOperations, "Invocation and event operations"
+	default:
+		return CapabilityIntegrationConnections, "Connector connections"
 	}
 }
 
@@ -123,14 +200,15 @@ func integrationBrowserClientPackage(method string) string {
 func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string]any {
 	result := make(map[string]map[string]any, len(routes))
 	for _, route := range routes {
-		method, path, found := strings.Cut(strings.TrimSpace(route.Pattern), " ")
+		pattern := route.Pattern()
+		method, _, found := strings.Cut(pattern, " ")
 		if !found {
 			continue
 		}
 		operation := map[string]any{
-			"operationId": integrationHTTPOperationID(method, path),
+			"operationId": integrationHTTPOperationID(route.Action.Key),
 			"tags":        []string{"Integration"},
-			"summary":     "Integration owner " + strings.ToLower(method) + " " + path,
+			"summary":     route.Action.Label,
 			"responses": map[string]any{
 				integrationHTTPSuccessStatus(method): map[string]any{
 					"description": "Integration owner response",
@@ -144,7 +222,7 @@ func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string
 			operation["x-domainry-owner-client-package"] = route.BrowserClientPackage
 			operation["x-domainry-owner-client-method"] = route.BrowserClientMethod
 		}
-		if route.Authentication == "anonymous" {
+		if route.Action.Authorization.Strategy == actioncontract.AuthorizationAnonymousProtocol {
 			operation["security"] = []any{}
 		} else {
 			operation["security"] = []map[string]any{{"BearerAuth": []string{}}}
@@ -157,17 +235,17 @@ func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string
 				}},
 			}
 		}
-		result[route.Pattern] = operation
+		result[pattern] = operation
 	}
 	return result
 }
 
-func integrationHTTPOperationID(method, path string) string {
-	parts := []string{strings.ToLower(strings.TrimSpace(method))}
-	for _, segment := range strings.FieldsFunc(path, func(value rune) bool {
-		return value == '/' || value == '-' || value == '{' || value == '}' || value == ':'
+func integrationHTTPOperationID(actionKey string) string {
+	parts := []string{}
+	for _, segment := range strings.FieldsFunc(actionKey, func(value rune) bool {
+		return value == '.' || value == '_' || value == '-'
 	}) {
-		if segment == "tenant" || segment == "admin" || segment == "integrations" || segment == "integration" {
+		if segment == "integration" {
 			continue
 		}
 		runes := []rune(segment)
