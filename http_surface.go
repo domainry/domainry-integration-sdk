@@ -166,7 +166,7 @@ func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []
 	switch authorization {
 	case "permission":
 		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationExactRolePermission}
-		definition.Permission = &actioncontract.PermissionDefinition{Key: key, Owner: definition.Owner, ResourceKey: key[:separator], ActionKey: key[separator+1:], Label: label, Category: "Integration", LifecycleStatus: actioncontract.LifecycleActive}
+		definition.Permission = &actioncontract.PermissionDefinition{Key: key, Owner: definition.Owner, ResourceKey: key[:separator], OperationKey: key[separator+1:], Label: label, Category: "Integration", LifecycleStatus: actioncontract.LifecycleActive}
 	case "principal":
 		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationAuthenticatedPrincipal}
 	case "anonymous":

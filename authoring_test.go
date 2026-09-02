@@ -66,6 +66,41 @@ func TestIntegrationAuthoringDomainOwnsCompleteCapabilitiesWithoutRuntimeOutbox(
 	}
 }
 
+func TestIntegrationAuthoringDomainProjectsOnlyExactActionPermissions(t *testing.T) {
+	actions := make(map[string]bool)
+	for _, route := range IntegrationHTTPSurfaceContract().Routes {
+		action := route.Action
+		if action.Authorization.Strategy != "exact_role_permission" {
+			continue
+		}
+		if action.Permission == nil || action.Permission.Key != action.Key {
+			t.Fatalf("Integration action %q is not a same-key permission", action.Key)
+		}
+		actions[action.Key] = true
+	}
+
+	retiredAliases := map[string]bool{
+		"integration.audit.view":        true,
+		"integration.catalog.view":      true,
+		"integration.connection.manage": true,
+		"integration.connection.test":   true,
+		"integration.retry":             true,
+	}
+	for _, capability := range IntegrationAuthoringDomain().Capabilities {
+		if capability.Execution != nil && capability.Execution.PermissionModel != exactActionSameKeyPermissionModel {
+			t.Errorf("capability %q permission model = %q", capability.Key, capability.Execution.PermissionModel)
+		}
+		for _, permission := range capability.Permissions {
+			if retiredAliases[permission] {
+				t.Errorf("capability %q publishes retired permission alias %q", capability.Key, permission)
+			}
+			if !actions[permission] {
+				t.Errorf("capability %q permission %q is not an Integration action", capability.Key, permission)
+			}
+		}
+	}
+}
+
 func TestSpecializeIntegrationAuthoringCapabilityUsesConnectorOwnedDefinition(t *testing.T) {
 	definition := json.RawMessage(`{
 		"key":"email",

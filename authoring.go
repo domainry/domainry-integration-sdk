@@ -191,7 +191,10 @@ var integrationConnectionStatuses = []string{"active", "configured", "degraded",
 var integrationInvocationStatuses = []string{"cancelled", "failed", "queued", "running", "succeeded"}
 var integrationEventStatuses = []string{"dead_letter", "failed", "ignored", "processed", "processing", "quarantined", "received"}
 
-const integrationAuthoringSourcePath = "github.com/domainry/domainry-integration-sdk/authoring.go"
+const (
+	integrationAuthoringSourcePath    = "github.com/domainry/domainry-integration-sdk/authoring.go"
+	exactActionSameKeyPermissionModel = "exact_action_same_key_permission"
+)
 
 // IntegrationAuthoringDomain returns the canonical source-owned Integration
 // authoring contribution. It publishes only routes actually owned by the
@@ -266,7 +269,7 @@ func integrationCatalogCapability() AuthoringCapability {
 	closed, open := false, true
 	connection := integrationConnectionOutputItemSchema()
 	return AuthoringCapability{
-		Key: "integration.catalog", Status: "supported", Lifecycle: "owner_catalog_read_only", Permissions: []string{"integration.catalog.view"},
+		Key: "integration.catalog", Status: "supported", Lifecycle: "owner_catalog_read_only", Permissions: []string{ActionIntegrationConnectorsList},
 		ConfigurationRoutes: []string{"GET /tenant-admin/integrations/connectors"},
 		InputSchema:         &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Properties: map[string]AuthoringSchema{}},
 		OutputSchema: &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"connectors", "connections", "connections_available", "count"}, Properties: map[string]AuthoringSchema{
@@ -274,7 +277,7 @@ func integrationCatalogCapability() AuthoringCapability {
 			"connections": {Type: "array", Items: &connection}, "connections_available": {Type: "boolean"}, "count": {Type: "integer"},
 		}},
 		OutputVariables: []AuthoringOutput{{Name: "connectors", JSONPointer: "/connectors", Type: "connector_list", VisibleTo: "subsequent_capability_calls"}, {Name: "count", JSONPointer: "/count", Type: "integer", VisibleTo: "subsequent_capability_calls"}},
-		Execution:       readExecution([]string{"integration.connector_catalog_projection"}, "integration.catalog.view"),
+		Execution:       readExecution([]string{"integration.connector_catalog_projection"}),
 		Examples:        readExamples(),
 		Sources:         []AuthoringSource{{Kind: "owner_sdk", Path: integrationAuthoringSourcePath, Symbol: "IntegrationAuthoringDomain"}, {Kind: "owner_sdk", Path: "github.com/domainry/domainry-integration-sdk/sdk.go", Symbol: "Catalog.ListConnectorDefinitions"}, {Kind: "owner_catalog", Path: "github.com/domainry/domainry-connectors/catalog/catalog.go", Symbol: "Catalog"}},
 	}
@@ -296,7 +299,7 @@ func integrationBindingValidationCapability(connector *authoringConnector, provi
 		input, output = integrationProtocolObjectSchema(operation.Input), integrationProtocolObjectSchema(operation.Output)
 	}
 	return AuthoringCapability{
-		Key: "integration.binding_validation", Status: "supported", Lifecycle: "side_effect_free_validation", Requires: []string{"integration.catalog", "integration.connection"}, Permissions: []string{"integration.catalog.view"},
+		Key: "integration.binding_validation", Status: "supported", Lifecycle: "side_effect_free_validation", Requires: []string{"integration.catalog", "integration.connection"}, Permissions: []string{ActionIntegrationConnectionsValidate},
 		Parameters:         []AuthoringParameter{{Key: "connector_key", Type: "connector_key", Required: true}, {Key: "operation_key", Type: "operation_key"}, {Key: "connection_key", Type: "connection_key"}, {Key: "connection_draft", Type: "integration_connection_draft"}, {Key: "input", Type: "operation_input"}, {Key: "output", Type: "operation_output"}},
 		ValidationEndpoint: "POST /tenant-admin/integrations/connections/{connectionKey}/validate", ConfigurationRoutes: []string{"POST /tenant-admin/integrations/connections/{connectionKey}/validate"}, ResourceKeyPathParameter: "connectionKey",
 		InputSchema: &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"connector_key"}, Properties: map[string]AuthoringSchema{
@@ -307,7 +310,7 @@ func integrationBindingValidationCapability(connector *authoringConnector, provi
 		}},
 		OutputVariables:    []AuthoringOutput{{Name: "valid", JSONPointer: "/valid", Type: "boolean", VisibleTo: "subsequent_capability_calls"}, {Name: "connection_ready", JSONPointer: "/connection_ready", Type: "boolean", VisibleTo: "subsequent_capability_calls"}},
 		ReferenceContracts: []AuthoringReference{connectorReference(), operationKeyReference(), connectionReference()},
-		Execution:          readExecution([]string{"integration.connector_catalog_projection", "integration.connection", "integration.secret"}, "integration.catalog.view"),
+		Execution:          readExecution([]string{"integration.connector_catalog_projection", "integration.connection", "integration.secret"}),
 		Errors:             []AuthoringError{authoringError("backend.integration.binding.operation_not_found", "operation_key"), authoringError("backend.integration.binding.connection_connector_mismatch", "connection_key"), authoringError("backend.integration.binding.protocol_field_unknown", "input"), authoringError("backend.integration.binding.protocol_type_mismatch", "input")},
 		Examples:           integrationBindingExamples(connector, operation),
 		Sources:            authoringSources("SpecializeIntegrationAuthoringCapability", "github.com/domainry/domainry-integration-sdk/management.go", "ConnectionInput"),
@@ -321,13 +324,13 @@ func integrationConnectionCapability(key string) AuthoringCapability {
 		lifecycle, audit = "explicit_connection_rotation", "integration_connection_rotated"
 	}
 	capability := AuthoringCapability{
-		Key: key, Status: "supported", Lifecycle: lifecycle, Requires: []string{"integration.catalog"}, Permissions: []string{"integration.connection.manage"}, AuditEvents: []string{audit},
+		Key: key, Status: "supported", Lifecycle: lifecycle, Requires: []string{"integration.catalog"}, Permissions: []string{ActionIntegrationConnectionsUpsert}, AuditEvents: []string{audit},
 		Parameters:         []AuthoringParameter{{Key: "key", Type: "connection_key"}, {Key: "connector_key", Type: "connector_key", Required: true}, {Key: "provider_key", Type: "provider_key", Required: true}, {Key: "name", Type: "string"}, {Key: "status", Type: "string", Default: "configured", Enum: cloneStrings(integrationConnectionStatuses)}, {Key: "config", Type: "provider_config"}, {Key: "secret_refs", Type: "provider_secret_refs"}},
 		ValidationEndpoint: "POST /tenant-admin/integrations/connections/{connectionKey}/validate", ConfigurationRoutes: []string{"PUT /tenant-admin/integrations/connections/{connectionKey}"}, ResourceKeyPathParameter: "connectionKey",
 		InputSchema: integrationConnectionInputSchema(nil), OutputSchema: integrationConnectionOutputSchema(),
 		OutputVariables:    []AuthoringOutput{{Name: "connection_key", JSONPointer: "/key", Type: "connection_key", VisibleTo: "subsequent_capability_calls"}},
 		ReferenceContracts: []AuthoringReference{connectorReference(), providerReference()},
-		Execution:          &AuthoringExecution{ReadSet: []string{"integration.connector_catalog_projection", "integration.secret"}, WriteSet: []string{"integration.connection"}, BoundaryClass: "integration_owner", Transaction: "integration_connection_transaction", Idempotency: "connection_key", SideEffects: []string{audit}, SideEffectLevel: "internal", PermissionModel: "integration.connection.manage", ChangeControl: "direct_on_configuring_runtime_change_plan_on_existing_runtime"},
+		Execution:          &AuthoringExecution{ReadSet: []string{"integration.connector_catalog_projection", "integration.secret"}, WriteSet: []string{"integration.connection"}, BoundaryClass: "integration_owner", Transaction: "integration_connection_transaction", Idempotency: "connection_key", SideEffects: []string{audit}, SideEffectLevel: "internal", PermissionModel: exactActionSameKeyPermissionModel, ChangeControl: "direct_on_configuring_runtime_change_plan_on_existing_runtime"},
 		Errors:             integrationConnectionErrors(), Examples: integrationConnectionExamples("example_connector", "default", nil),
 		Sources: authoringSources("SpecializeIntegrationAuthoringCapability", "github.com/domainry/domainry-integration-sdk/management.go", "Management.UpsertConnection"),
 	}
@@ -347,11 +350,15 @@ func integrationConnectionCommandCapability(key, route, audit, symbol string) Au
 		closed := false
 		output = &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed}
 	}
+	actionKey := ActionIntegrationConnectionsDisable
+	if key == "integration.connection.delete" {
+		actionKey = ActionIntegrationConnectionsDelete
+	}
 	return AuthoringCapability{
-		Key: key, Status: "supported", Lifecycle: "audited_connection_command", Requires: []string{"integration.connection"}, Permissions: []string{"integration.connection.manage"}, AuditEvents: []string{audit}, Parameters: parameters,
+		Key: key, Status: "supported", Lifecycle: "audited_connection_command", Requires: []string{"integration.connection"}, Permissions: []string{actionKey}, AuditEvents: []string{audit}, Parameters: parameters,
 		ConfigurationRoutes: []string{route}, ResourceKeyPathParameter: "connectionKey", InputSchema: parameterObjectSchema(parameters), OutputSchema: output,
 		OutputVariables: []AuthoringOutput{{Name: "connection_key", JSONPointer: "/key", Type: "connection_key", VisibleTo: "subsequent_capability_calls"}}, ReferenceContracts: []AuthoringReference{connectionReference()},
-		Execution: &AuthoringExecution{ReadSet: []string{"integration.connection"}, WriteSet: []string{"integration.connection"}, BoundaryClass: "integration_owner", Transaction: "integration_connection_transaction", Idempotency: "connection_state_transition", SideEffects: []string{audit}, SideEffectLevel: "internal", PermissionModel: "integration.connection.manage"},
+		Execution: &AuthoringExecution{ReadSet: []string{"integration.connection"}, WriteSet: []string{"integration.connection"}, BoundaryClass: "integration_owner", Transaction: "integration_connection_transaction", Idempotency: "connection_state_transition", SideEffects: []string{audit}, SideEffectLevel: "internal", PermissionModel: exactActionSameKeyPermissionModel},
 		Errors:    integrationConnectionErrors(), Examples: commandExamples("connection_key", "erp_primary", "backend.integration.connection.missing_key"), Sources: authoringSources("IntegrationAuthoringDomain", "github.com/domainry/domainry-integration-sdk/management.go", symbol),
 	}
 }
@@ -367,13 +374,13 @@ func integrationOperationTestCapability(operation *authoringOperation) Authoring
 	}
 	closed := false
 	return AuthoringCapability{
-		Key: "integration.operation_test", Status: "supported", Lifecycle: "explicit_confirmed_test", Requires: []string{"integration.connection", "integration.catalog"}, Permissions: []string{"integration.connection.test"}, AuditEvents: []string{"integration_operation_tested"},
+		Key: "integration.operation_test", Status: "supported", Lifecycle: "explicit_confirmed_test", Requires: []string{"integration.connection", "integration.catalog"}, Permissions: []string{ActionIntegrationConnectionsTestOperation}, AuditEvents: []string{"integration_operation_tested"},
 		Parameters:         []AuthoringParameter{{Key: "operation", Type: "operation_key", Required: true}, {Key: "input", Type: "operation_input"}, {Key: "confirm", Type: "boolean", Required: true}},
 		ValidationEndpoint: "POST /tenant-admin/integrations/connections/{connectionKey}/test-operation", ConfigurationRoutes: []string{"POST /tenant-admin/integrations/connections/{connectionKey}/test-operation"}, ResourceKeyPathParameter: "connectionKey",
 		InputSchema:     &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"operation", "confirm"}, Properties: map[string]AuthoringSchema{"operation": operationSchema, "input": input, "confirm": {Type: "boolean", Const: true}}},
 		OutputSchema:    &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"connection", "operation", "response", "receipt"}, Properties: map[string]AuthoringSchema{"connection": {Type: "object", AdditionalProperties: &open}, "operation": {Type: "string"}, "response": output, "receipt": {Type: "object", AdditionalProperties: &open}}},
 		OutputVariables: []AuthoringOutput{{Name: "response", JSONPointer: "/response", Type: "operation_response", VisibleTo: "subsequent_capability_calls"}, {Name: "receipt", JSONPointer: "/receipt", Type: "integration_delivery_receipt", VisibleTo: "subsequent_capability_calls"}}, ReferenceContracts: []AuthoringReference{operationReference()},
-		Execution: &AuthoringExecution{ReadSet: []string{"integration.connection", "integration.connector_catalog_projection", "integration.secret"}, WriteSet: []string{"integration.invocation"}, BoundaryClass: "integration_owner", Transaction: "integration_test_invocation", Idempotency: "explicit_test_invocation", SideEffects: []string{"provider_test_call", "integration_operation_tested"}, SideEffectLevel: "external_confirmed", Compensation: "explicit_test_invocations_are_audited_and_never_automatically_retried", PermissionModel: "integration.connection.test", ChangeControl: "explicit_confirm_required"},
+		Execution: &AuthoringExecution{ReadSet: []string{"integration.connection", "integration.connector_catalog_projection", "integration.secret"}, WriteSet: []string{"integration.invocation"}, BoundaryClass: "integration_owner", Transaction: "integration_test_invocation", Idempotency: "explicit_test_invocation", SideEffects: []string{"provider_test_call", "integration_operation_tested"}, SideEffectLevel: "external_confirmed", Compensation: "explicit_test_invocations_are_audited_and_never_automatically_retried", PermissionModel: exactActionSameKeyPermissionModel, ChangeControl: "explicit_confirm_required"},
 		Errors:    []AuthoringError{authoringError("backend.integration.operation_test_confirmation_required", "confirm"), authoringError("backend.automation.connector_operation_not_found", "operation"), authoringError("backend.integration.binding.protocol_field_unknown", "input"), authoringError("backend.integration.binding.protocol_type_mismatch", "input")},
 		Examples:  integrationOperationTestExamples(operationKey, operation), Sources: authoringSources("SpecializeIntegrationAuthoringCapability", "github.com/domainry/domainry-integration-sdk/management.go", "Management.TestConnection"),
 	}
@@ -398,11 +405,15 @@ func integrationReadListCapability(key, route, collection string, item Authoring
 	} else {
 		representative["provider"] = "slack"
 	}
+	actionKey := ActionIntegrationEventsList
+	if key == "integration.invocation.list" {
+		actionKey = ActionIntegrationInvocationsList
+	}
 	return AuthoringCapability{
-		Key: key, Status: "supported", Lifecycle: "owner_activity_query", Permissions: []string{"integration.audit.view"}, Parameters: parameters, ConfigurationRoutes: []string{route},
+		Key: key, Status: "supported", Lifecycle: "owner_activity_query", Permissions: []string{actionKey}, Parameters: parameters, ConfigurationRoutes: []string{route},
 		InputSchema: parameterObjectSchema(parameters), OutputSchema: &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{collection, "count"}, Properties: map[string]AuthoringSchema{collection: {Type: "array", Items: &item}, "count": {Type: "integer", Minimum: float64Pointer(0)}}},
 		OutputVariables: []AuthoringOutput{{Name: collection, JSONPointer: "/" + collection, Type: "integration_activity_list", VisibleTo: "subsequent_capability_calls"}, {Name: "count", JSONPointer: "/count", Type: "integer", VisibleTo: "subsequent_capability_calls"}}, ReferenceContracts: references,
-		Execution: readExecution([]string{"integration." + collection}, "integration.audit.view"), Errors: []AuthoringError{authoringErrorWithParameters("backend.integration.query_limit_invalid", "limit", []string{"actual", "maximum", "minimum"})},
+		Execution: readExecution([]string{"integration." + collection}), Errors: []AuthoringError{authoringErrorWithParameters("backend.integration.query_limit_invalid", "limit", []string{"actual", "maximum", "minimum"})},
 		Examples: []AuthoringExample{{Name: "minimal_valid", Value: map[string]any{}}, {Name: "representative", Value: representative}, {Name: "invalid_with_repair", Value: map[string]any{"limit": 201}, ExpectedErrorCodes: []string{"backend.integration.query_limit_invalid"}}},
 		Sources:  authoringSources("IntegrationAuthoringDomain", "github.com/domainry/domainry-integration-sdk/operations.go", symbol),
 	}
@@ -411,10 +422,10 @@ func integrationReadListCapability(key, route, collection string, item Authoring
 func integrationEventReplayCapability() AuthoringCapability {
 	parameters := []AuthoringParameter{{Key: "event_id", Type: "integration_event_id", Required: true}}
 	return AuthoringCapability{
-		Key: "integration.event.replay", Status: "supported", Lifecycle: "audited_event_replay", Requires: []string{"integration.event.list"}, Permissions: []string{"integration.retry"}, AuditEvents: []string{"integration_event_replayed"}, Parameters: parameters,
+		Key: "integration.event.replay", Status: "supported", Lifecycle: "audited_event_replay", Requires: []string{"integration.event.list"}, Permissions: []string{ActionIntegrationEventsReplay}, AuditEvents: []string{"integration_event_replayed"}, Parameters: parameters,
 		ConfigurationRoutes: []string{"POST /tenant-admin/integrations/events/{eventID}/replay"}, ResourceKeyPathParameter: "eventID", InputSchema: parameterObjectSchema(parameters), OutputSchema: integrationEventOutputSchema(),
 		OutputVariables: []AuthoringOutput{{Name: "event_id", JSONPointer: "/id", Type: "integration_event_id", VisibleTo: "subsequent_capability_calls"}, {Name: "status", JSONPointer: "/status", Type: "string", VisibleTo: "subsequent_capability_calls"}},
-		Execution:       &AuthoringExecution{ReadSet: []string{"integration.event", "integration.event_mapping"}, WriteSet: []string{"integration.event"}, BoundaryClass: "integration_owner", Transaction: "integration_event_transaction", Idempotency: "event_id_and_current_state", SideEffects: []string{"integration_event_replayed"}, SideEffectLevel: "internal", PermissionModel: "integration.retry"},
+		Execution:       &AuthoringExecution{ReadSet: []string{"integration.event", "integration.event_mapping"}, WriteSet: []string{"integration.event"}, BoundaryClass: "integration_owner", Transaction: "integration_event_transaction", Idempotency: "event_id_and_current_state", SideEffects: []string{"integration_event_replayed"}, SideEffectLevel: "internal", PermissionModel: exactActionSameKeyPermissionModel},
 		Errors:          []AuthoringError{authoringError("backend.integration.event_not_found", "event_id"), authoringError("backend.integration.event_replay_failed", "event_id")},
 		Examples:        commandExamples("event_id", "evt_1001", "backend.integration.event_not_found"), Sources: authoringSources("IntegrationAuthoringDomain", "github.com/domainry/domainry-integration-sdk/operations.go", "Operations.ReplayEvent"),
 	}
@@ -630,8 +641,8 @@ func integrationConnectionErrors() []AuthoringError {
 	}
 }
 
-func readExecution(readSet []string, permission string) *AuthoringExecution {
-	return &AuthoringExecution{ReadSet: readSet, BoundaryClass: "integration_owner", Transaction: "read_only", Idempotency: "naturally_idempotent", SideEffectLevel: "none", PermissionModel: permission}
+func readExecution(readSet []string) *AuthoringExecution {
+	return &AuthoringExecution{ReadSet: readSet, BoundaryClass: "integration_owner", Transaction: "read_only", Idempotency: "naturally_idempotent", SideEffectLevel: "none", PermissionModel: exactActionSameKeyPermissionModel}
 }
 
 func readExamples() []AuthoringExample {
