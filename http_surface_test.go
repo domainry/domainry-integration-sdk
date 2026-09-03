@@ -28,7 +28,7 @@ func TestIntegrationHTTPSurfaceContractIsCompleteAndSourceOwned(t *testing.T) {
 		if strings.Contains(pattern, "/operations/integrations") || strings.Contains(pattern, "/integrations/outbox") {
 			t.Fatalf("retired Runtime-owned Integration route returned: %q", pattern)
 		}
-		if route.Action.Authorization.Strategy == "anonymous_protocol" {
+		if route.Action.Authorization.Strategy == "signed" {
 			if route.BrowserClientPackage != "" || route.BrowserClientMethod != "" {
 				t.Fatalf("anonymous ingress must not claim a browser client: %#v", route)
 			}

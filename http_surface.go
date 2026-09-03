@@ -92,13 +92,13 @@ func IntegrationHTTPSurfaceContract() HTTPSurfaceContract {
 
 func integrationHTTPRoutes() []HTTPRouteContract {
 	admin := func(key, pattern, browserClientMethod string) HTTPRouteContract {
-		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposureTenantAdmin}, "permission")
+		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposureTenantAdmin}, actioncontract.AuthorizationAuthenticated, true)
 	}
 	user := func(key, pattern, browserClientMethod string) HTTPRouteContract {
-		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposurePublic}, "principal")
+		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposurePublic}, actioncontract.AuthorizationAuthenticated, false)
 	}
-	public := func(key, pattern string) HTTPRouteContract {
-		return integrationHTTPRoute(key, pattern, "", []actioncontract.Exposure{actioncontract.ExposurePublic}, "anonymous")
+	signed := func(key, pattern string) HTTPRouteContract {
+		return integrationHTTPRoute(key, pattern, "", []actioncontract.Exposure{actioncontract.ExposurePublic}, actioncontract.AuthorizationSigned, false)
 	}
 	return []HTTPRouteContract{
 		admin(ActionIntegrationCatalogRead, "GET /tenant-admin/integrations/catalog", "catalog"),
@@ -138,11 +138,11 @@ func integrationHTTPRoutes() []HTTPRouteContract {
 		admin(ActionIntegrationEventsList, "GET /tenant-admin/integrations/events", "listEvents"),
 		admin(ActionIntegrationEventsGet, "GET /tenant-admin/integrations/events/{eventID}", "getEvent"),
 		admin(ActionIntegrationEventsReplay, "POST /tenant-admin/integrations/events/{eventID}/replay", "replayEvent"),
-		public(ActionIntegrationWebhooksIngest, "POST /integrations/webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
+		signed(ActionIntegrationWebhooksIngest, "POST /integrations/webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
 	}
 }
 
-func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []actioncontract.Exposure, authorization string) HTTPRouteContract {
+func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []actioncontract.Exposure, strategy actioncontract.AuthorizationStrategy, requirePermission bool) HTTPRouteContract {
 	method, path, _ := strings.Cut(strings.TrimSpace(pattern), " ")
 	effect, risk, idempotency, auditClass := actioncontract.EffectWrite, actioncontract.RiskMedium, "caller_key_or_natural_resource_identity", "integration_owner_mutation"
 	if method == "GET" || method == "HEAD" || method == "OPTIONS" {
@@ -162,15 +162,13 @@ func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []
 		OperationKey: key[separator+1:], OperationLabel: label, Label: label, Exposures: exposures,
 		HTTP: &actioncontract.HTTPBinding{Method: method, RouteTemplate: path}, EffectClass: effect, RiskLevel: risk,
 		IdempotencyDecision: idempotency, AuditClass: auditClass, LifecycleStatus: actioncontract.LifecycleActive,
+		Authorization: actioncontract.Authorization{Strategy: strategy},
 	}
-	switch authorization {
-	case "permission":
-		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationExactRolePermission}
+	if requirePermission {
 		definition.Permission = &actioncontract.PermissionDefinition{Key: key, Owner: definition.Owner, ResourceKey: key[:separator], OperationKey: key[separator+1:], Label: label, Category: "Integration", LifecycleStatus: actioncontract.LifecycleActive}
-	case "principal":
-		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationAuthenticatedPrincipal}
-	case "anonymous":
-		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationAnonymousProtocol, PolicyKey: "integration.webhook.signature"}
+	}
+	if strategy == actioncontract.AuthorizationSigned {
+		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationSigned, PolicyKey: "integration.webhook.signature"}
 	}
 	return HTTPRouteContract{
 		Action: definition, BrowserClientPackage: integrationBrowserClientPackage(browserClientMethod), BrowserClientMethod: browserClientMethod,
@@ -222,7 +220,7 @@ func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string
 			operation["x-domainry-owner-client-package"] = route.BrowserClientPackage
 			operation["x-domainry-owner-client-method"] = route.BrowserClientMethod
 		}
-		if route.Action.Authorization.Strategy == actioncontract.AuthorizationAnonymousProtocol {
+		if route.Action.Authorization.Strategy == actioncontract.AuthorizationSigned {
 			operation["security"] = []any{}
 		} else {
 			operation["security"] = []map[string]any{{"BearerAuth": []string{}}}

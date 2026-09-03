@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	actioncontract "github.com/domainry/domainry-foundation/action"
 )
 
 func TestIntegrationAuthoringDomainOwnsCompleteCapabilitiesWithoutRuntimeOutbox(t *testing.T) {
@@ -70,7 +72,7 @@ func TestIntegrationAuthoringDomainProjectsOnlyExactActionPermissions(t *testing
 	actions := make(map[string]bool)
 	for _, route := range IntegrationHTTPSurfaceContract().Routes {
 		action := route.Action
-		if action.Authorization.Strategy != "exact_role_permission" {
+		if action.Authorization.Strategy != actioncontract.AuthorizationAuthenticated || action.Permission == nil {
 			continue
 		}
 		if action.Permission == nil || action.Permission.Key != action.Key {
