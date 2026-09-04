@@ -42,15 +42,27 @@ type InvocationQuery struct {
 }
 
 type ProviderCallRequest struct {
-	RequestID     string          `json:"request_id"`
-	WorkspaceID   string          `json:"workspace_id"`
-	ConnectorKey  string          `json:"connector_key"`
-	ConnectionKey string          `json:"connection_key,omitempty"`
-	Operation     string          `json:"operation"`
-	Payload       json.RawMessage `json:"payload"`
-	ActorID       string          `json:"actor_id,omitempty"`
-	RoleKey       string          `json:"role_key,omitempty"`
+	RequestID         string                  `json:"request_id"`
+	WorkspaceID       string                  `json:"workspace_id"`
+	ConnectorKey      string                  `json:"connector_key"`
+	ConnectionKey     string                  `json:"connection_key,omitempty"`
+	Operation         string                  `json:"operation"`
+	Payload           json.RawMessage         `json:"payload"`
+	PersistenceMode   ProviderCallPersistence `json:"persistence_mode,omitempty"`
+	MaskedDestination string                  `json:"masked_destination,omitempty"`
+	ActorID           string                  `json:"actor_id,omitempty"`
+	RoleKey           string                  `json:"role_key,omitempty"`
 }
+
+// ProviderCallPersistence controls whether request/response bodies may enter
+// Integration-owned invocation evidence. Sensitive calls retain only routing
+// status and explicitly safe metadata such as a masked destination.
+type ProviderCallPersistence string
+
+const (
+	ProviderCallPersistenceStandard  ProviderCallPersistence = "standard"
+	ProviderCallPersistenceSensitive ProviderCallPersistence = "sensitive"
+)
 
 func (r ProviderCallRequest) Validate() error {
 	for name, value := range map[string]string{"request_id": r.RequestID, "workspace_id": r.WorkspaceID, "connector_key": r.ConnectorKey, "operation": r.Operation} {
@@ -60,6 +72,12 @@ func (r ProviderCallRequest) Validate() error {
 	}
 	if !json.Valid(r.Payload) {
 		return fmt.Errorf("Integration provider call payload must be valid JSON")
+	}
+	if r.PersistenceMode != "" && r.PersistenceMode != ProviderCallPersistenceStandard && r.PersistenceMode != ProviderCallPersistenceSensitive {
+		return fmt.Errorf("Integration provider call persistence_mode is invalid")
+	}
+	if r.PersistenceMode == ProviderCallPersistenceSensitive && strings.TrimSpace(r.MaskedDestination) == "" {
+		return fmt.Errorf("Integration sensitive provider call masked_destination is required")
 	}
 	return nil
 }
