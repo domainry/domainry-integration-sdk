@@ -53,7 +53,7 @@ func TestIntegrationAuthoringDomainOwnsCompleteCapabilitiesWithoutRuntimeOutbox(
 			}
 		}
 		for _, route := range capability.ConfigurationRoutes {
-			if strings.Contains(route, "/operations/integrations") || strings.Contains(route, "/integrations/outbox") {
+			if strings.Contains(route, "/operations/integration") || strings.Contains(route, "/integration/outbox") {
 				t.Fatalf("capability %q publishes retired route %q", capability.Key, route)
 			}
 		}
@@ -70,7 +70,7 @@ func TestIntegrationAuthoringDomainOwnsCompleteCapabilitiesWithoutRuntimeOutbox(
 
 func TestIntegrationAuthoringDomainProjectsOnlyExactActionPermissions(t *testing.T) {
 	actions := make(map[string]bool)
-	for _, route := range IntegrationHTTPSurfaceContract().Routes {
+	for _, route := range IntegrationHTTPAdapterContract().Routes {
 		action := route.Action
 		if action.Authorization.Strategy != actioncontract.AuthorizationAuthenticated || action.Permission == nil {
 			continue

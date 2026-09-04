@@ -198,7 +198,7 @@ const (
 
 // IntegrationAuthoringDomain returns the canonical source-owned Integration
 // authoring contribution. It publishes only routes actually owned by the
-// Integration HTTP surface; Runtime publication handoff is intentionally not
+// Integration HTTP adapter; Runtime publication handoff is intentionally not
 // represented as Integration outbox authoring.
 func IntegrationAuthoringDomain() AuthoringDomain {
 	capabilities := []AuthoringCapability{
@@ -206,8 +206,8 @@ func IntegrationAuthoringDomain() AuthoringDomain {
 		integrationBindingValidationCapability(nil, nil, nil),
 		integrationConnectionCapability("integration.connection"),
 		integrationConnectionCapability("integration.connection.rotate"),
-		integrationConnectionCommandCapability("integration.connection.disable", "POST /tenant-admin/integrations/connections/{connectionKey}/disable", "integration_connection_disabled", "Management.SetConnectionStatus"),
-		integrationConnectionCommandCapability("integration.connection.delete", "DELETE /tenant-admin/integrations/connections/{connectionKey}", "integration_connection_deleted", "Management.DeleteConnection"),
+		integrationConnectionCommandCapability("integration.connection.disable", "POST /integration/connections/{connectionKey}/disable", "integration_connection_disabled", "Management.SetConnectionStatus"),
+		integrationConnectionCommandCapability("integration.connection.delete", "DELETE /integration/connections/{connectionKey}", "integration_connection_deleted", "Management.DeleteConnection"),
 		integrationOperationTestCapability(nil),
 		integrationInvocationListCapability(),
 		integrationEventListCapability(),
@@ -270,7 +270,7 @@ func integrationCatalogCapability() AuthoringCapability {
 	connection := integrationConnectionOutputItemSchema()
 	return AuthoringCapability{
 		Key: "integration.catalog", Status: "supported", Lifecycle: "owner_catalog_read_only", Permissions: []string{ActionIntegrationConnectorsList},
-		ConfigurationRoutes: []string{"GET /tenant-admin/integrations/connectors"},
+		ConfigurationRoutes: []string{"GET /integration/connectors"},
 		InputSchema:         &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Properties: map[string]AuthoringSchema{}},
 		OutputSchema: &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"connectors", "connections", "connections_available", "count"}, Properties: map[string]AuthoringSchema{
 			"connectors":  {Type: "array", Items: &AuthoringSchema{Type: "object", AdditionalProperties: &open}},
@@ -301,7 +301,7 @@ func integrationBindingValidationCapability(connector *authoringConnector, provi
 	return AuthoringCapability{
 		Key: "integration.binding_validation", Status: "supported", Lifecycle: "side_effect_free_validation", Requires: []string{"integration.catalog", "integration.connection"}, Permissions: []string{ActionIntegrationConnectionsValidate},
 		Parameters:         []AuthoringParameter{{Key: "connector_key", Type: "connector_key", Required: true}, {Key: "operation_key", Type: "operation_key"}, {Key: "connection_key", Type: "connection_key"}, {Key: "connection_draft", Type: "integration_connection_draft"}, {Key: "input", Type: "operation_input"}, {Key: "output", Type: "operation_output"}},
-		ValidationEndpoint: "POST /tenant-admin/integrations/connections/{connectionKey}/validate", ConfigurationRoutes: []string{"POST /tenant-admin/integrations/connections/{connectionKey}/validate"}, ResourceKeyPathParameter: "connectionKey",
+		ValidationEndpoint: "POST /integration/connections/{connectionKey}/validate", ConfigurationRoutes: []string{"POST /integration/connections/{connectionKey}/validate"}, ResourceKeyPathParameter: "connectionKey",
 		InputSchema: &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"connector_key"}, Properties: map[string]AuthoringSchema{
 			"connector_key": connectorKey, "operation_key": operationKey, "connection_key": {Type: "string"}, "connection_draft": connectionDraft, "input": input, "output": output,
 		}},
@@ -326,7 +326,7 @@ func integrationConnectionCapability(key string) AuthoringCapability {
 	capability := AuthoringCapability{
 		Key: key, Status: "supported", Lifecycle: lifecycle, Requires: []string{"integration.catalog"}, Permissions: []string{ActionIntegrationConnectionsUpsert}, AuditEvents: []string{audit},
 		Parameters:         []AuthoringParameter{{Key: "key", Type: "connection_key"}, {Key: "connector_key", Type: "connector_key", Required: true}, {Key: "provider_key", Type: "provider_key", Required: true}, {Key: "name", Type: "string"}, {Key: "status", Type: "string", Default: "configured", Enum: cloneStrings(integrationConnectionStatuses)}, {Key: "config", Type: "provider_config"}, {Key: "secret_refs", Type: "provider_secret_refs"}},
-		ValidationEndpoint: "POST /tenant-admin/integrations/connections/{connectionKey}/validate", ConfigurationRoutes: []string{"PUT /tenant-admin/integrations/connections/{connectionKey}"}, ResourceKeyPathParameter: "connectionKey",
+		ValidationEndpoint: "POST /integration/connections/{connectionKey}/validate", ConfigurationRoutes: []string{"PUT /integration/connections/{connectionKey}"}, ResourceKeyPathParameter: "connectionKey",
 		InputSchema: integrationConnectionInputSchema(nil), OutputSchema: integrationConnectionOutputSchema(),
 		OutputVariables:    []AuthoringOutput{{Name: "connection_key", JSONPointer: "/key", Type: "connection_key", VisibleTo: "subsequent_capability_calls"}},
 		ReferenceContracts: []AuthoringReference{connectorReference(), providerReference()},
@@ -337,8 +337,8 @@ func integrationConnectionCapability(key string) AuthoringCapability {
 	if rotate {
 		capability.Requires = []string{"integration.connection"}
 	} else {
-		capability.ConfigurationRoutes = append(capability.ConfigurationRoutes, "GET /tenant-admin/integrations/connections/{connectionKey}", "DELETE /tenant-admin/integrations/connections/{connectionKey}")
-		capability.ResourceOperations = &AuthoringResourceOperations{PersistenceMode: "audited_resource", Validate: capability.ValidationEndpoint, Upsert: "PUT /tenant-admin/integrations/connections/{connectionKey}", UpsertHeaders: directAuthoringHeaders(), SuccessSchema: directAuthoringSuccessSchema(), Get: "GET /tenant-admin/integrations/connections/{connectionKey}", Delete: "DELETE /tenant-admin/integrations/connections/{connectionKey}"}
+		capability.ConfigurationRoutes = append(capability.ConfigurationRoutes, "GET /integration/connections/{connectionKey}", "DELETE /integration/connections/{connectionKey}")
+		capability.ResourceOperations = &AuthoringResourceOperations{PersistenceMode: "audited_resource", Validate: capability.ValidationEndpoint, Upsert: "PUT /integration/connections/{connectionKey}", UpsertHeaders: directAuthoringHeaders(), SuccessSchema: directAuthoringSuccessSchema(), Get: "GET /integration/connections/{connectionKey}", Delete: "DELETE /integration/connections/{connectionKey}"}
 	}
 	return capability
 }
@@ -376,7 +376,7 @@ func integrationOperationTestCapability(operation *authoringOperation) Authoring
 	return AuthoringCapability{
 		Key: "integration.operation_test", Status: "supported", Lifecycle: "explicit_confirmed_test", Requires: []string{"integration.connection", "integration.catalog"}, Permissions: []string{ActionIntegrationConnectionsTestOperation}, AuditEvents: []string{"integration_operation_tested"},
 		Parameters:         []AuthoringParameter{{Key: "operation", Type: "operation_key", Required: true}, {Key: "input", Type: "operation_input"}, {Key: "confirm", Type: "boolean", Required: true}},
-		ValidationEndpoint: "POST /tenant-admin/integrations/connections/{connectionKey}/test-operation", ConfigurationRoutes: []string{"POST /tenant-admin/integrations/connections/{connectionKey}/test-operation"}, ResourceKeyPathParameter: "connectionKey",
+		ValidationEndpoint: "POST /integration/connections/{connectionKey}/test-operation", ConfigurationRoutes: []string{"POST /integration/connections/{connectionKey}/test-operation"}, ResourceKeyPathParameter: "connectionKey",
 		InputSchema:     &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"operation", "confirm"}, Properties: map[string]AuthoringSchema{"operation": operationSchema, "input": input, "confirm": {Type: "boolean", Const: true}}},
 		OutputSchema:    &AuthoringSchema{Schema: jsonSchemaDraft, Type: "object", AdditionalProperties: &closed, Required: []string{"connection", "operation", "response", "receipt"}, Properties: map[string]AuthoringSchema{"connection": {Type: "object", AdditionalProperties: &open}, "operation": {Type: "string"}, "response": output, "receipt": {Type: "object", AdditionalProperties: &open}}},
 		OutputVariables: []AuthoringOutput{{Name: "response", JSONPointer: "/response", Type: "operation_response", VisibleTo: "subsequent_capability_calls"}, {Name: "receipt", JSONPointer: "/receipt", Type: "integration_delivery_receipt", VisibleTo: "subsequent_capability_calls"}}, ReferenceContracts: []AuthoringReference{operationReference()},
@@ -388,12 +388,12 @@ func integrationOperationTestCapability(operation *authoringOperation) Authoring
 
 func integrationInvocationListCapability() AuthoringCapability {
 	parameters := []AuthoringParameter{{Key: "connector_key", Type: "connector_key"}, {Key: "connection_key", Type: "connection_key"}, {Key: "operation", Type: "operation_key"}, {Key: "status", Type: "string", Enum: cloneStrings(integrationInvocationStatuses)}, {Key: "created_from", Type: "datetime"}, {Key: "limit", Type: "integer", Default: 100, Minimum: float64Pointer(1), Maximum: float64Pointer(200)}}
-	return integrationReadListCapability("integration.invocation.list", "GET /tenant-admin/integrations/invocations", "invocations", integrationInvocationSchema(), parameters, []AuthoringReference{connectorReference(), connectionReference(), operationReference()}, "Operations.ListInvocations")
+	return integrationReadListCapability("integration.invocation.list", "GET /integration/invocations", "invocations", integrationInvocationSchema(), parameters, []AuthoringReference{connectorReference(), connectionReference(), operationReference()}, "Operations.ListInvocations")
 }
 
 func integrationEventListCapability() AuthoringCapability {
 	parameters := []AuthoringParameter{{Key: "provider", Type: "string"}, {Key: "event_type", Type: "string"}, {Key: "status", Type: "string", Enum: cloneStrings(integrationEventStatuses)}, {Key: "limit", Type: "integer", Default: 100, Minimum: float64Pointer(1), Maximum: float64Pointer(100)}}
-	return integrationReadListCapability("integration.event.list", "GET /tenant-admin/integrations/events", "events", integrationEventSchema(), parameters, nil, "Operations.ListEvents")
+	return integrationReadListCapability("integration.event.list", "GET /integration/events", "events", integrationEventSchema(), parameters, nil, "Operations.ListEvents")
 }
 
 func integrationReadListCapability(key, route, collection string, item AuthoringSchema, parameters []AuthoringParameter, references []AuthoringReference, symbol string) AuthoringCapability {
@@ -423,7 +423,7 @@ func integrationEventReplayCapability() AuthoringCapability {
 	parameters := []AuthoringParameter{{Key: "event_id", Type: "integration_event_id", Required: true}}
 	return AuthoringCapability{
 		Key: "integration.event.replay", Status: "supported", Lifecycle: "audited_event_replay", Requires: []string{"integration.event.list"}, Permissions: []string{ActionIntegrationEventsReplay}, AuditEvents: []string{"integration_event_replayed"}, Parameters: parameters,
-		ConfigurationRoutes: []string{"POST /tenant-admin/integrations/events/{eventID}/replay"}, ResourceKeyPathParameter: "eventID", InputSchema: parameterObjectSchema(parameters), OutputSchema: integrationEventOutputSchema(),
+		ConfigurationRoutes: []string{"POST /integration/events/{eventID}/replay"}, ResourceKeyPathParameter: "eventID", InputSchema: parameterObjectSchema(parameters), OutputSchema: integrationEventOutputSchema(),
 		OutputVariables: []AuthoringOutput{{Name: "event_id", JSONPointer: "/id", Type: "integration_event_id", VisibleTo: "subsequent_capability_calls"}, {Name: "status", JSONPointer: "/status", Type: "string", VisibleTo: "subsequent_capability_calls"}},
 		Execution:       &AuthoringExecution{ReadSet: []string{"integration.event", "integration.event_mapping"}, WriteSet: []string{"integration.event"}, BoundaryClass: "integration_owner", Transaction: "integration_event_transaction", Idempotency: "event_id_and_current_state", SideEffects: []string{"integration_event_replayed"}, SideEffectLevel: "internal", PermissionModel: exactActionSameKeyPermissionModel},
 		Errors:          []AuthoringError{authoringError("backend.integration.event_not_found", "event_id"), authoringError("backend.integration.event_replay_failed", "event_id")},
@@ -654,19 +654,19 @@ func commandExamples(key, value, errorCode string) []AuthoringExample {
 }
 
 func connectorReference() AuthoringReference {
-	return AuthoringReference{Kind: "connector_key", InputJSONPointer: "/connector_key", ResolverEndpoint: "/tenant-admin/platform-capabilities/references/connector_key"}
+	return AuthoringReference{Kind: "connector_key", InputJSONPointer: "/connector_key", ResolverEndpoint: "/capabilities/references/connector_key"}
 }
 func providerReference() AuthoringReference {
-	return AuthoringReference{Kind: "provider_key", InputJSONPointer: "/provider_key", ScopeFrom: "/connector_key", ResolverEndpoint: "/tenant-admin/platform-capabilities/references/provider_key"}
+	return AuthoringReference{Kind: "provider_key", InputJSONPointer: "/provider_key", ScopeFrom: "/connector_key", ResolverEndpoint: "/capabilities/references/provider_key"}
 }
 func operationReference() AuthoringReference {
-	return AuthoringReference{Kind: "operation_key", InputJSONPointer: "/operation", ScopeFrom: "/connector_key", ResolverEndpoint: "/tenant-admin/platform-capabilities/references/operation_key"}
+	return AuthoringReference{Kind: "operation_key", InputJSONPointer: "/operation", ScopeFrom: "/connector_key", ResolverEndpoint: "/capabilities/references/operation_key"}
 }
 func operationKeyReference() AuthoringReference {
-	return AuthoringReference{Kind: "operation_key", InputJSONPointer: "/operation_key", ScopeFrom: "/connector_key", ResolverEndpoint: "/tenant-admin/platform-capabilities/references/operation_key"}
+	return AuthoringReference{Kind: "operation_key", InputJSONPointer: "/operation_key", ScopeFrom: "/connector_key", ResolverEndpoint: "/capabilities/references/operation_key"}
 }
 func connectionReference() AuthoringReference {
-	return AuthoringReference{Kind: "connection_key", InputJSONPointer: "/connection_key", ResolverEndpoint: "/tenant-admin/platform-capabilities/references/connection_key"}
+	return AuthoringReference{Kind: "connection_key", InputJSONPointer: "/connection_key", ResolverEndpoint: "/capabilities/references/connection_key"}
 }
 
 func authoringSources(authoringSymbol, contractPath, contractSymbol string) []AuthoringSource {

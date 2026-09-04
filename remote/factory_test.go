@@ -36,7 +36,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			capabilityHandler.ServeHTTP(response, request)
 			return
 		}
-		if request.Method == http.MethodPost && request.URL.Path == "/v1/deliveries" {
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/deliveries" {
 			var delivery integrationsdk.DeliveryRequest
 			if err := json.NewDecoder(request.Body).Decode(&delivery); err != nil || delivery.MessageID != "message-1" || delivery.DeduplicationKey != "record:1:sync" {
 				t.Fatalf("delivery=%#v err=%v", delivery, err)
@@ -44,7 +44,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			_ = json.NewEncoder(response).Encode(integrationsdk.DeliveryReceipt{MessageID: delivery.MessageID, InvocationID: "invocation-1", Status: integrationsdk.DeliveryStatusAccepted})
 			return
 		}
-		if request.Method == http.MethodPut && request.URL.Path == "/v1/application-requirements/connections" {
+		if request.Method == http.MethodPut && request.URL.Path == "/integration/v1/application-requirements/connections" {
 			var body struct {
 				Items []integrationsdk.ConnectionRequirement `json:"items"`
 			}
@@ -55,7 +55,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			response.WriteHeader(http.StatusNoContent)
 			return
 		}
-		if request.Method == http.MethodGet && request.URL.Path == "/v1/web-push/readiness" {
+		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/web-push/readiness" {
 			if request.URL.Query().Get("workspace_id") != "workspace-a" {
 				t.Fatalf("readiness query=%s", request.URL.RawQuery)
 			}
@@ -63,7 +63,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushReadiness{Ready: true, PublicKey: "public-key", ConnectionKey: "push", Status: "verified"})
 			return
 		}
-		if request.Method == http.MethodGet && request.URL.Path == "/v1/web-push-subscriptions" {
+		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/web-push-subscriptions" {
 			if request.URL.Query().Get("workspace_id") != "workspace-a" || request.URL.Query().Get("user_id") != "user-a" {
 				t.Fatalf("list query=%s", request.URL.RawQuery)
 			}
@@ -71,7 +71,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			_ = json.NewEncoder(response).Encode(map[string]any{"items": []integrationsdk.WebPushSubscription{{ID: "browser-a", UserID: "user-a", Status: "active"}}})
 			return
 		}
-		if request.Method == http.MethodPut && request.URL.Path == "/v1/web-push-subscriptions/browser-a" {
+		if request.Method == http.MethodPut && request.URL.Path == "/integration/v1/web-push-subscriptions/browser-a" {
 			var input integrationsdk.WebPushSubscriptionInput
 			if err := json.NewDecoder(request.Body).Decode(&input); err != nil || input.Endpoint != "https://push.example/a" {
 				t.Fatalf("upsert input=%#v err=%v", input, err)
@@ -80,12 +80,12 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushSubscription{ID: "browser-a", UserID: "user-a", Status: "active"})
 			return
 		}
-		if request.Method == http.MethodPost && request.URL.Path == "/v1/web-push-subscriptions/browser-a/revoke" {
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/web-push-subscriptions/browser-a/revoke" {
 			webPushCalls["revoke"] = true
 			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushSubscription{ID: "browser-a", UserID: "user-a", Status: "revoked"})
 			return
 		}
-		if request.Method == http.MethodPost && request.URL.Path == "/v1/web-push-subscriptions/cleanup-expired" {
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/web-push-subscriptions/cleanup-expired" {
 			webPushCalls["cleanup"] = true
 			_ = json.NewEncoder(response).Encode(map[string]int{"cleaned": 2})
 			return

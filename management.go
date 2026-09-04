@@ -165,7 +165,7 @@ type ConnectionTestResult struct {
 }
 
 // Management owns Integration configuration and security lifecycle. Actor IDs
-// are evidence supplied by the authenticated product surface, not authority to
+// are evidence supplied by the authenticated product adapter, not authority to
 // impersonate another Runtime principal.
 type Management interface {
 	ListConnections(context.Context, string) ([]Connection, error)

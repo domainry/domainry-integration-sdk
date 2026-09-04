@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestIntegrationHTTPSurfaceContractIsCompleteAndSourceOwned(t *testing.T) {
-	contract := IntegrationHTTPSurfaceContract()
-	if contract.ContractVersion != IntegrationHTTPSurfaceContractVersion || contract.Owner != "integration" || contract.Name == "" {
+func TestIntegrationHTTPAdapterContractIsCompleteAndSourceOwned(t *testing.T) {
+	contract := IntegrationHTTPAdapterContract()
+	if contract.ContractVersion != IntegrationHTTPAdapterContractVersion || contract.Owner != "integration" || contract.Name == "" {
 		t.Fatalf("incomplete Integration HTTP contract: %#v", contract)
 	}
 	seen := map[string]bool{}
@@ -25,7 +25,7 @@ func TestIntegrationHTTPSurfaceContractIsCompleteAndSourceOwned(t *testing.T) {
 		if strings.TrimSpace(operation["operationId"].(string)) == "" || operation["responses"] == nil {
 			t.Fatalf("route %q has incomplete OpenAPI: %#v", pattern, operation)
 		}
-		if strings.Contains(pattern, "/operations/integrations") || strings.Contains(pattern, "/integrations/outbox") {
+		if strings.Contains(pattern, "/operations/integration") || strings.Contains(pattern, "/integration/outbox") {
 			t.Fatalf("retired Runtime-owned Integration route returned: %q", pattern)
 		}
 		if route.Action.Authorization.Strategy == "signed" {

@@ -97,7 +97,7 @@ func (c *remoteClient) ListConnectorDefinitions(ctx context.Context) ([]integrat
 	var response struct {
 		Items []integrationsdk.ConnectorDefinition `json:"items"`
 	}
-	if err := c.call(ctx, http.MethodGet, "/v1/connector-definitions", nil, &response); err != nil {
+	if err := c.call(ctx, http.MethodGet, "/integration/v1/connector-definitions", nil, &response); err != nil {
 		return nil, err
 	}
 	return response.Items, nil
@@ -109,7 +109,7 @@ func (c *remoteClient) SynchronizeConnections(ctx context.Context, requirements 
 			return err
 		}
 	}
-	return c.call(ctx, http.MethodPut, "/v1/application-requirements/connections", struct {
+	return c.call(ctx, http.MethodPut, "/integration/v1/application-requirements/connections", struct {
 		Items []integrationsdk.ConnectionRequirement `json:"items"`
 	}{Items: requirements}, nil)
 }
@@ -120,7 +120,7 @@ func (c *remoteClient) SynchronizeEventMappings(ctx context.Context, requirement
 			return err
 		}
 	}
-	return c.call(ctx, http.MethodPut, "/v1/application-requirements/event-mappings", struct {
+	return c.call(ctx, http.MethodPut, "/integration/v1/application-requirements/event-mappings", struct {
 		Items []integrationsdk.EventMappingRequirement `json:"items"`
 	}{Items: requirements}, nil)
 }
@@ -130,7 +130,7 @@ func (c *remoteClient) Accept(ctx context.Context, request integrationsdk.Delive
 		return integrationsdk.DeliveryReceipt{}, err
 	}
 	var receipt integrationsdk.DeliveryReceipt
-	if err := c.call(ctx, http.MethodPost, "/v1/deliveries", request, &receipt); err != nil {
+	if err := c.call(ctx, http.MethodPost, "/integration/v1/deliveries", request, &receipt); err != nil {
 		return integrationsdk.DeliveryReceipt{}, err
 	}
 	return receipt, nil
@@ -141,7 +141,7 @@ func (c *remoteClient) Query(ctx context.Context, messageID string) (integration
 		return integrationsdk.DeliveryReceipt{}, fmt.Errorf("Integration delivery message ID is required")
 	}
 	var receipt integrationsdk.DeliveryReceipt
-	path := "/v1/deliveries/" + url.PathEscape(messageID)
+	path := "/integration/v1/deliveries/" + url.PathEscape(messageID)
 	if err := c.call(ctx, http.MethodGet, path, nil, &receipt); err != nil {
 		return integrationsdk.DeliveryReceipt{}, err
 	}
@@ -150,7 +150,7 @@ func (c *remoteClient) Query(ctx context.Context, messageID string) (integration
 
 func (c *remoteClient) Readiness(ctx context.Context, workspaceID string) (integrationsdk.WebPushReadiness, error) {
 	var value integrationsdk.WebPushReadiness
-	path := "/v1/web-push/readiness?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+	path := "/integration/v1/web-push/readiness?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
 	if err := c.call(ctx, http.MethodGet, path, nil, &value); err != nil {
 		return value, err
 	}
@@ -161,7 +161,7 @@ func (c *remoteClient) List(ctx context.Context, workspaceID, userID string) ([]
 	var response struct {
 		Items []integrationsdk.WebPushSubscription `json:"items"`
 	}
-	path := "/v1/web-push-subscriptions?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(userID))
+	path := "/integration/v1/web-push-subscriptions?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(userID))
 	if err := c.call(ctx, http.MethodGet, path, nil, &response); err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (c *remoteClient) List(ctx context.Context, workspaceID, userID string) ([]
 
 func (c *remoteClient) Upsert(ctx context.Context, workspaceID, userID, id string, input integrationsdk.WebPushSubscriptionInput) (integrationsdk.WebPushSubscription, error) {
 	var value integrationsdk.WebPushSubscription
-	path := "/v1/web-push-subscriptions/" + url.PathEscape(strings.TrimSpace(id)) + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(userID))
+	path := "/integration/v1/web-push-subscriptions/" + url.PathEscape(strings.TrimSpace(id)) + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(userID))
 	if err := c.call(ctx, http.MethodPut, path, input, &value); err != nil {
 		return value, err
 	}
@@ -179,7 +179,7 @@ func (c *remoteClient) Upsert(ctx context.Context, workspaceID, userID, id strin
 
 func (c *remoteClient) Revoke(ctx context.Context, workspaceID, userID, id string) (integrationsdk.WebPushSubscription, error) {
 	var value integrationsdk.WebPushSubscription
-	path := "/v1/web-push-subscriptions/" + url.PathEscape(strings.TrimSpace(id)) + "/revoke?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(userID))
+	path := "/integration/v1/web-push-subscriptions/" + url.PathEscape(strings.TrimSpace(id)) + "/revoke?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(userID))
 	if err := c.call(ctx, http.MethodPost, path, nil, &value); err != nil {
 		return value, err
 	}
@@ -190,7 +190,7 @@ func (c *remoteClient) CleanupExpired(ctx context.Context, workspaceID string) (
 	var response struct {
 		Cleaned int `json:"cleaned"`
 	}
-	path := "/v1/web-push-subscriptions/cleanup-expired?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+	path := "/integration/v1/web-push-subscriptions/cleanup-expired?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
 	if err := c.call(ctx, http.MethodPost, path, nil, &response); err != nil {
 		return 0, err
 	}
@@ -198,7 +198,7 @@ func (c *remoteClient) CleanupExpired(ctx context.Context, workspaceID string) (
 }
 
 func managementPath(resource, workspaceID string) string {
-	return "/v1/management/" + resource + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+	return "/integration/v1/management/" + resource + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
 }
 
 func (c *remoteClient) ListConnections(ctx context.Context, workspaceID string) ([]integrationsdk.Connection, error) {
@@ -330,7 +330,7 @@ func (c *remoteClient) Call(ctx context.Context, request integrationsdk.Provider
 		return integrationsdk.ProviderCallResult{}, err
 	}
 	var result integrationsdk.ProviderCallResult
-	err := c.call(ctx, http.MethodPost, "/v1/operations/call", request, &result)
+	err := c.call(ctx, http.MethodPost, "/integration/v1/operations/call", request, &result)
 	return result, err
 }
 
@@ -348,13 +348,13 @@ func (c *remoteClient) ListInvocations(ctx context.Context, query integrationsdk
 	if query.Limit > 0 {
 		values.Set("limit", fmt.Sprint(query.Limit))
 	}
-	err := c.call(ctx, http.MethodGet, "/v1/operations/invocations?"+values.Encode(), nil, &response)
+	err := c.call(ctx, http.MethodGet, "/integration/v1/operations/invocations?"+values.Encode(), nil, &response)
 	return response.Items, err
 }
 
 func (c *remoteClient) GetInvocation(ctx context.Context, workspaceID, id string) (integrationsdk.Invocation, error) {
 	var value integrationsdk.Invocation
-	path := "/v1/operations/invocations/" + url.PathEscape(strings.TrimSpace(id)) + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+	path := "/integration/v1/operations/invocations/" + url.PathEscape(strings.TrimSpace(id)) + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
 	err := c.call(ctx, http.MethodGet, path, nil, &value)
 	return value, err
 }
@@ -364,7 +364,7 @@ func (c *remoteClient) AcceptWebhook(ctx context.Context, request integrationsdk
 		return integrationsdk.WebhookReceipt{}, err
 	}
 	var value integrationsdk.WebhookReceipt
-	err := c.call(ctx, http.MethodPost, "/v1/inbound/webhooks", request, &value)
+	err := c.call(ctx, http.MethodPost, "/integration/v1/inbound/webhooks", request, &value)
 	return value, err
 }
 
@@ -380,20 +380,20 @@ func (c *remoteClient) ListEvents(ctx context.Context, query integrationsdk.Even
 	if query.Limit > 0 {
 		values.Set("limit", fmt.Sprint(query.Limit))
 	}
-	err := c.call(ctx, http.MethodGet, "/v1/inbound/events?"+values.Encode(), nil, &response)
+	err := c.call(ctx, http.MethodGet, "/integration/v1/inbound/events?"+values.Encode(), nil, &response)
 	return response.Items, err
 }
 
 func (c *remoteClient) GetEvent(ctx context.Context, workspaceID, id string) (integrationsdk.Event, error) {
 	var value integrationsdk.Event
-	path := "/v1/inbound/events/" + url.PathEscape(strings.TrimSpace(id)) + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+	path := "/integration/v1/inbound/events/" + url.PathEscape(strings.TrimSpace(id)) + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
 	err := c.call(ctx, http.MethodGet, path, nil, &value)
 	return value, err
 }
 
 func (c *remoteClient) ReplayEvent(ctx context.Context, workspaceID, id string) (integrationsdk.Event, error) {
 	var value integrationsdk.Event
-	path := "/v1/inbound/events/" + url.PathEscape(strings.TrimSpace(id)) + "/replay?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+	path := "/integration/v1/inbound/events/" + url.PathEscape(strings.TrimSpace(id)) + "/replay?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
 	err := c.call(ctx, http.MethodPost, path, nil, &value)
 	return value, err
 }

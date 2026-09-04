@@ -11,14 +11,14 @@ Deployment-neutral contracts between Domainry Runtime and Integration running as
   disclosure, including schemas, references, examples, repair errors and
   source symbols. `SpecializeIntegrationAuthoringCapability` derives
   Connector-specific examples from the source-owned Connector definition.
-- `IntegrationHTTPSurfaceContract` is the canonical Module HTTP route,
+- `IntegrationHTTPAdapterContract` is the canonical Module HTTP route,
   governance and OpenAPI contract. Runtime and Plane may aggregate it, but
   must not re-author Integration paths or schemas.
 - `modulehost` describes database, dialect, migration, provider registry, secret-cipher, and Runtime Trigger capabilities borrowed by an embedded module.
 - `remote` contains the SaaS client implementation.
 - `saashost` describes SaaS composition.
 - `browser` publishes `@domainry/integration-client` for Integration-owned
-  admin activity and Web Push surfaces; these APIs do not belong to the
+  admin activity and Web Push clients; these APIs do not belong to the
   Runtime browser client.
 
 The SDK intentionally has no public `persistence` package. Integration-owned tables and DML stay in the Integration implementation; Runtime consumes business capabilities through the root Binding.
@@ -30,7 +30,7 @@ projection without transferring ownership to Integration or Runtime.
 Embedded modules use the host database, transaction boundary, SQL dialect,
 migration lock, and the host-owned `_schema_migrations` ledger.
 
-The contract tests reject Runtime source paths, retired
-`/operations/integrations/*` routes and Integration outbox capability keys.
+The contract tests reject Runtime source paths, non-`/integration` product
+routes and Integration outbox capability keys.
 Run `go test ./...` and `npm test --prefix browser` before publishing an
 immutable SDK version.

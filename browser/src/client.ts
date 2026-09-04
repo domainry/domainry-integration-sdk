@@ -30,16 +30,16 @@ export class IntegrationClient {
   }
 
   catalog<T = IntegrationCatalog>(signal?: AbortSignal) {
-    return this.#dependencies.request<T>('/tenant-admin/integrations/catalog', { signal })
+    return this.#dependencies.request<T>('/integration/catalog', { signal })
   }
 
   connectors<T = IntegrationCatalog>(signal?: AbortSignal) {
-    return this.#dependencies.request<T>('/tenant-admin/integrations/connectors', { signal })
+    return this.#dependencies.request<T>('/integration/connectors', { signal })
   }
 
   listConnections<T = { connections: IntegrationConnection[]; count: number }>(query: IntegrationQuery = {}, signal?: AbortSignal) {
     return this.#dependencies.request<T>(
-      `/tenant-admin/integrations/connections${queryString(query)}`,
+      `/integration/connections${queryString(query)}`,
       { signal },
     )
   }
@@ -78,7 +78,7 @@ export class IntegrationClient {
   }
 
   listSecrets<T = { items: IntegrationSecret[]; count: number }>(query: IntegrationQuery = {}, signal?: AbortSignal) {
-    return this.#dependencies.request<T>(`/tenant-admin/integrations/secrets${queryString(query)}`, { signal })
+    return this.#dependencies.request<T>(`/integration/secrets${queryString(query)}`, { signal })
   }
 
   upsertSecret<T = IntegrationSecret>(secretKey: string, body: IntegrationSecretInput, options: IntegrationRequestOptions = {}) {
@@ -102,11 +102,11 @@ export class IntegrationClient {
   }
 
   listAPIKeys<T = { api_keys: IntegrationAPIKey[]; count: number }>(query: IntegrationQuery = {}, signal?: AbortSignal) {
-    return this.#dependencies.request<T>(`/tenant-admin/integrations/api-keys${queryString(query)}`, { signal })
+    return this.#dependencies.request<T>(`/integration/api-keys${queryString(query)}`, { signal })
   }
 
   createAPIKey<T = IntegrationAPIKeyCredential>(body: IntegrationAPIKeyInput, options: IntegrationRequestOptions = {}) {
-    return this.#dependencies.request<T>('/tenant-admin/integrations/api-keys', fixedOptions(options, 'POST', body))
+    return this.#dependencies.request<T>('/integration/api-keys', fixedOptions(options, 'POST', body))
   }
 
   disableAPIKey<T = IntegrationAPIKey>(apiKey: string, body?: unknown, options: IntegrationRequestOptions = {}) {
@@ -119,7 +119,7 @@ export class IntegrationClient {
 
   listExternalIdentities<T = { identities: IntegrationExternalIdentity[]; count: number }>(query: IntegrationQuery = {}, signal?: AbortSignal) {
     return this.#dependencies.request<T>(
-      `/tenant-admin/integrations/external-identities${queryString(query)}`,
+      `/integration/external-identities${queryString(query)}`,
       { signal },
     )
   }
@@ -134,14 +134,14 @@ export class IntegrationClient {
 
   resolveExternalIdentity<T = IntegrationExternalIdentity>(body: { provider: string; external_subject: string }, options: IntegrationRequestOptions = {}) {
     return this.#dependencies.request<T>(
-      '/tenant-admin/integrations/external-identities/resolve',
+      '/integration/external-identities/resolve',
       fixedOptions(options, 'POST', body),
     )
   }
 
   listWebhookSubscriptions<T = { subscriptions: IntegrationWebhookSubscription[]; count: number }>(query: IntegrationQuery = {}, signal?: AbortSignal) {
     return this.#dependencies.request<T>(
-      `/tenant-admin/integrations/webhook-subscriptions${queryString(query)}`,
+      `/integration/webhook-subscriptions${queryString(query)}`,
       { signal },
     )
   }
@@ -160,7 +160,7 @@ export class IntegrationClient {
 
   listInvocations(query: Record<string, string> = {}, signal?: AbortSignal) {
     return this.#dependencies.request<{ invocations: IntegrationInvocation[]; count: number }>(
-      `/tenant-admin/integrations/invocations${queryString(query)}`,
+      `/integration/invocations${queryString(query)}`,
       { signal },
     )
   }
@@ -175,7 +175,7 @@ export class IntegrationClient {
 
   listEvents(query: Record<string, string> = {}, signal?: AbortSignal) {
     return this.#dependencies.request<{ events: IntegrationEvent[]; count: number }>(
-      `/tenant-admin/integrations/events${queryString(query)}`,
+      `/integration/events${queryString(query)}`,
       { signal },
     )
   }
@@ -188,20 +188,20 @@ export class IntegrationClient {
   replayEvent(eventID: string) {
     required(eventID, 'eventID')
     return this.#dependencies.request<IntegrationEvent>(
-      `/tenant-admin/integrations/events/${encodeURIComponent(eventID)}/replay`,
+      `/integration/events/${encodeURIComponent(eventID)}/replay`,
       { method: 'POST' },
     )
   }
 
   webPushReadiness() {
     return this.#dependencies.request<IntegrationWebPushReadiness>(
-      '/business/notifications/web-push/readiness',
+      '/integration/web-push/readiness',
     )
   }
 
   webPushSubscriptions() {
     return this.#dependencies.request<{ subscriptions: IntegrationWebPushSubscription[]; count: number }>(
-      '/business/notifications/web-push/subscriptions',
+      '/integration/web-push/subscriptions',
     )
   }
 
@@ -213,7 +213,7 @@ export class IntegrationClient {
     required(subscriptionID, 'subscriptionID')
     required(options.idempotencyKey, 'Idempotency-Key')
     return this.#dependencies.request<IntegrationWebPushSubscription>(
-      `/business/notifications/web-push/subscriptions/${encodeURIComponent(subscriptionID)}`,
+      `/integration/web-push/subscriptions/${encodeURIComponent(subscriptionID)}`,
       {
         method: 'PUT',
         requestId: options.requestId,
@@ -230,7 +230,7 @@ export class IntegrationClient {
     required(subscriptionID, 'subscriptionID')
     required(options.idempotencyKey, 'Idempotency-Key')
     return this.#dependencies.request<IntegrationWebPushSubscription>(
-      `/business/notifications/web-push/subscriptions/${encodeURIComponent(subscriptionID)}/revoke`,
+      `/integration/web-push/subscriptions/${encodeURIComponent(subscriptionID)}/revoke`,
       {
         method: 'POST',
         requestId: options.requestId,
@@ -241,7 +241,7 @@ export class IntegrationClient {
 
   cleanupExpiredWebPushSubscriptions<T = unknown>(body?: unknown, options: IntegrationRequestOptions = {}) {
     return this.#dependencies.request<T>(
-      '/integrations/web-push/subscriptions/cleanup-expired',
+      '/integration/web-push/subscriptions/cleanup-expired',
       fixedOptions(options, 'POST', body),
     )
   }
@@ -288,7 +288,7 @@ function queryString(query: IntegrationQuery): string {
 }
 
 function integrationResourcePath(resource: string, key: string): string {
-  return `/tenant-admin/integrations/${resource}/${encodeURIComponent(key)}`
+  return `/integration/${resource}/${encodeURIComponent(key)}`
 }
 
 function fixedOptions(
