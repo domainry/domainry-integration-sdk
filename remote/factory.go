@@ -76,15 +76,20 @@ func (b *binding) ValidateCapabilityCandidate(ctx context.Context, request modul
 }
 
 func (*binding) Descriptor() integrationsdk.Descriptor {
-	return integrationsdk.Descriptor{ProtocolVersion: integrationsdk.ProtocolVersionV1, Mode: integrationsdk.DeploymentModeSaaS, Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query"}}
+	return integrationsdk.Descriptor{ProtocolVersion: integrationsdk.ProtocolVersionV1, Mode: integrationsdk.DeploymentModeSaaS, Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "connection_accounts.manage", "connection_accounts.read", "connection_accounts.write", "oauth_applications.manage", "oauth_authorizations.manage", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query"}}
 }
-func (b *binding) Catalog() integrationsdk.Catalog                           { return b.client }
-func (b *binding) Requirements() integrationsdk.Requirements                 { return b.client }
-func (b *binding) WebPushSubscriptions() integrationsdk.WebPushSubscriptions { return b.client }
-func (b *binding) Delivery() integrationsdk.Delivery                         { return b.client }
-func (b *binding) Management() integrationsdk.Management                     { return b.client }
-func (b *binding) Operations() integrationsdk.Operations                     { return b.client }
-func (*binding) Close(context.Context) error                                 { return nil }
+func (b *binding) Catalog() integrationsdk.Catalog                               { return b.client }
+func (b *binding) Requirements() integrationsdk.Requirements                     { return b.client }
+func (b *binding) WebPushSubscriptions() integrationsdk.WebPushSubscriptions     { return b.client }
+func (b *binding) Delivery() integrationsdk.Delivery                             { return b.client }
+func (b *binding) Management() integrationsdk.Management                         { return b.client }
+func (b *binding) ConnectionAccounts() integrationsdk.ConnectionAccounts         { return b.client }
+func (b *binding) ConnectionAccountReads() integrationsdk.ConnectionAccountReads { return b.client }
+func (b *binding) ConnectionAccountAdministration() integrationsdk.ConnectionAccountAdministration {
+	return b.client
+}
+func (b *binding) Operations() integrationsdk.Operations { return b.client }
+func (*binding) Close(context.Context) error             { return nil }
 
 type remoteClient struct {
 	base      *url.URL
@@ -199,6 +204,55 @@ func (c *remoteClient) CleanupExpired(ctx context.Context, workspaceID string) (
 
 func managementPath(resource, workspaceID string) string {
 	return "/integration/v1/management/" + resource + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(workspaceID))
+}
+
+func connectionAccountPath(resource string, subject integrationsdk.ConnectionAccountSubject) string {
+	return "/integration/v1/connection-accounts" + resource + "?workspace_id=" + url.QueryEscape(strings.TrimSpace(subject.WorkspaceID)) + "&user_id=" + url.QueryEscape(strings.TrimSpace(subject.UserID)) + "&allow_personal=" + fmt.Sprint(subject.Access.Personal) + "&allow_workspace=" + fmt.Sprint(subject.Access.Workspace)
+}
+
+func (c *remoteClient) ListConnectionAccounts(ctx context.Context, subject integrationsdk.ConnectionAccountSubject) ([]integrationsdk.ConnectionAccount, error) {
+	if err := subject.Validate(); err != nil {
+		return nil, err
+	}
+	var response struct {
+		Items []integrationsdk.ConnectionAccount `json:"items"`
+	}
+	err := c.call(ctx, http.MethodGet, connectionAccountPath("", subject), nil, &response)
+	return response.Items, err
+}
+
+func (c *remoteClient) GetConnectionAccount(ctx context.Context, subject integrationsdk.ConnectionAccountSubject, key string) (integrationsdk.ConnectionAccount, error) {
+	if err := subject.Validate(); err != nil {
+		return integrationsdk.ConnectionAccount{}, err
+	}
+	var value integrationsdk.ConnectionAccount
+	err := c.call(ctx, http.MethodGet, connectionAccountPath("/"+url.PathEscape(strings.TrimSpace(key)), subject), nil, &value)
+	return value, err
+}
+
+func (c *remoteClient) TestConnectionAccount(ctx context.Context, subject integrationsdk.ConnectionAccountSubject, key string, request integrationsdk.ConnectionTestRequest) (integrationsdk.ConnectionAccountTestResult, error) {
+	if err := subject.Validate(); err != nil {
+		return integrationsdk.ConnectionAccountTestResult{}, err
+	}
+	var value integrationsdk.ConnectionAccountTestResult
+	err := c.call(ctx, http.MethodPost, connectionAccountPath("/"+url.PathEscape(strings.TrimSpace(key))+"/test", subject), request, &value)
+	return value, err
+}
+
+func (c *remoteClient) RevokeConnectionAccount(ctx context.Context, subject integrationsdk.ConnectionAccountSubject, key, expectedUpdatedAt string) (integrationsdk.ConnectionAccount, error) {
+	if err := subject.Validate(); err != nil {
+		return integrationsdk.ConnectionAccount{}, err
+	}
+	var value integrationsdk.ConnectionAccount
+	err := c.call(ctx, http.MethodPost, connectionAccountPath("/"+url.PathEscape(strings.TrimSpace(key))+"/revoke", subject), map[string]string{"expected_updated_at": strings.TrimSpace(expectedUpdatedAt)}, &value)
+	return value, err
+}
+
+func (c *remoteClient) RegisterConnectionAccount(ctx context.Context, workspaceID, key, actorID string, input integrationsdk.ConnectionAccountRegistration) (integrationsdk.ConnectionAccount, error) {
+	var value integrationsdk.ConnectionAccount
+	path := managementPath("connections/"+url.PathEscape(strings.TrimSpace(key))+"/account", workspaceID) + "&actor_id=" + url.QueryEscape(strings.TrimSpace(actorID))
+	err := c.call(ctx, http.MethodPost, path, input, &value)
+	return value, err
 }
 
 func (c *remoteClient) ListConnections(ctx context.Context, workspaceID string) ([]integrationsdk.Connection, error) {
@@ -449,3 +503,9 @@ var _ integrationsdk.Delivery = (*remoteClient)(nil)
 var _ integrationsdk.WebPushSubscriptions = (*remoteClient)(nil)
 var _ integrationsdk.Management = (*remoteClient)(nil)
 var _ integrationsdk.ManagementBinding = (*binding)(nil)
+var _ integrationsdk.ConnectionAccounts = (*remoteClient)(nil)
+var _ integrationsdk.ConnectionAccountAdministration = (*remoteClient)(nil)
+var _ integrationsdk.ConnectionAccountsBinding = (*binding)(nil)
+var _ integrationsdk.ConnectionAccountAdministrationBinding = (*binding)(nil)
+
+func (b *binding) ConnectionAccountWrites() integrationsdk.ConnectionAccountWrites { return b.client }

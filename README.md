@@ -23,6 +23,20 @@ Deployment-neutral contracts between Domainry Runtime and Integration running as
 
 The SDK intentionally has no public `persistence` package. Integration-owned tables and DML stay in the Integration implementation; Runtime consumes business capabilities through the root Binding.
 
+`ConnectionAccountReadsBinding` exposes a separate current-user read port.
+`AuthorizeConnectionAccountRead` checks one exact operation contract against
+current account ownership, readiness and actual provider-declared grants.
+`ReadConnectionAccount` resolves credentials inside Integration and returns a
+source reference plus bounded payload. A host supplies a freshly authorized
+`ConnectionAccountSubject`; browser/model requests cannot provide identity,
+scopes, credentials or configuration. Hosts must also recheck their current
+Identity/tool permission before exposing live or retained results.
+
+Read payloads are sensitive and are not persisted in Integration invocation
+evidence. Replaying a succeeded request returns `payload_available: false` with
+the original invocation reference. A fresh read uses a new request ID. Retained
+results must be authorized again and match the current source/account revision.
+
 Connector definitions and Provider schemas remain source-owned by
 `domainry-connectors`. The Integration Catalog port exposes their materialized
 projection without transferring ownership to Integration or Runtime.
@@ -34,3 +48,26 @@ The contract tests reject Runtime source paths, non-`/integration` product
 routes and Integration outbox capability keys.
 Run `go test ./...` and `npm test --prefix browser` before publishing an
 immutable SDK version.
+
+`ConnectionAccountWritesBinding` is an optional host-only mutation port, separate
+from account reads. `AuthorizeConnectionAccountWrite` returns the current source
+revision for the host's authorization/confirmation. `WriteConnectionAccount`
+accepts that frozen source, exact typed payload and stable host execution ID;
+the owner rechecks account/grants, claims once and persists only a fingerprint
+and a validated calendar/mail receipt. Changed input under the same actor and
+request ID conflicts. Invocation IDs are independent of caller payload.
+
+After a timeout/disconnect, use `ReadConnectionAccountWriteReceipt` with the
+original request. This reads owner evidence without vendor I/O. `uncertain`
+includes in-flight and crash-interrupted writes; neither it nor `failed` permits
+automatic re-execution. A success receipt acknowledges the provider effect;
+mail acceptance and calendar notification requests do not prove delivery.
+Hosts must recheck their current Identity/tool permission before executing or
+showing receipts. Integration separately checks current account ownership,
+revision, state and actual OAuth grants.
+
+Embedded hosts use this Go port directly. SaaS uses three bounded authenticated
+service POST endpoints (`write-access`, `write`, `write-receipt`), with redirects
+and cookies disabled and no automatic client retry. These endpoints are not
+part of the public product HTTP adapter or browser SDK. Product confirmation
+and execution identities remain the host's responsibility.

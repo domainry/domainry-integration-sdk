@@ -1,4 +1,7 @@
 import type {
+ IntegrationConnectionAccountReadOperation, IntegrationConnectionAccountReadRequest, IntegrationConnectionAccountReadAccess, IntegrationConnectionAccountReadResult,
+ IntegrationConnectionAccount, IntegrationOAuthApplication, IntegrationOAuthApplicationInput,
+ IntegrationOAuthAuthorizationOption, IntegrationOAuthAuthorizationInput, IntegrationOAuthAuthorizationSession, IntegrationOAuthAuthorizationCallback,
   IntegrationAPIKey,
   IntegrationAPIKeyCredential,
   IntegrationAPIKeyInput,
@@ -76,6 +79,23 @@ export class IntegrationClient {
   testOperation<T = IntegrationConnectorOperationTestResult>(connectionKey: string, body: IntegrationConnectionTestRequest, options: IntegrationRequestOptions = {}) {
     return this.#command<T>('connections', connectionKey, 'test-operation', 'POST', body, options)
   }
+
+
+  listConnectionAccounts(signal?: AbortSignal) {
+    return this.#dependencies.request<{accounts: IntegrationConnectionAccount[]; count: number}>('/integration/connection-accounts', {signal})
+  }
+  getConnectionAccount(key: string, signal?: AbortSignal) {required(key, 'key'); return this.#dependencies.request<IntegrationConnectionAccount>(integrationResourcePath('connection-accounts', key), {signal})}
+  registerConnectionAccount(key: string, body: {scope: 'personal' | 'workspace'; owner_user_id?: string}, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccount>('connections',key,'account','POST',body,options)}
+  testConnectionAccount(key: string, options: IntegrationRequestOptions = {}) {return this.#command<{account: IntegrationConnectionAccount; operation: string; connected: boolean}>('connection-accounts',key,'test','POST',{},options)}
+  revokeConnectionAccount(key: string, expectedUpdatedAt: string, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccount>('connection-accounts',key,'revoke','POST',{expected_updated_at: expectedUpdatedAt},options)}
+  authorizeConnectionAccountRead(key: string, body: IntegrationConnectionAccountReadOperation, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccountReadAccess>('connection-accounts',key,'read-access','POST',body,options)}
+  readConnectionAccount(key: string, body: IntegrationConnectionAccountReadRequest, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccountReadResult>('connection-accounts',key,'read','POST',body,options)}
+  listOAuthApplications(signal?: AbortSignal) {return this.#dependencies.request<{applications: IntegrationOAuthApplication[]}>('/integration/oauth-applications',{signal})}
+  upsertOAuthApplication(key: string, body: IntegrationOAuthApplicationInput, options: IntegrationRequestOptions = {}) {return this.#resourceCommand<IntegrationOAuthApplication>('oauth-applications',key,'PUT',body,options)}
+  listOAuthAuthorizationOptions(signal?: AbortSignal) {return this.#dependencies.request<{options: IntegrationOAuthAuthorizationOption[]}>('/integration/oauth-authorizations/options',{signal})}
+  startOAuthAuthorization(body: IntegrationOAuthAuthorizationInput, options: IntegrationRequestOptions = {}) {return this.#dependencies.request<IntegrationOAuthAuthorizationSession>('/integration/oauth-authorizations',{...options,method:'POST',body})}
+  getOAuthAuthorization(id: string, signal?: AbortSignal) {required(id,'id');return this.#dependencies.request<IntegrationOAuthAuthorizationSession>(integrationResourcePath('oauth-authorizations',id),{signal})}
+  completeOAuthAuthorization(body: IntegrationOAuthAuthorizationCallback, options: IntegrationRequestOptions = {}) {return this.#dependencies.request<IntegrationOAuthAuthorizationSession>('/integration/oauth-authorizations/callback',{...options,method:'POST',body})}
 
   listSecrets<T = { items: IntegrationSecret[]; count: number }>(query: IntegrationQuery = {}, signal?: AbortSignal) {
     return this.#dependencies.request<T>(`/integration/secrets${queryString(query)}`, { signal })

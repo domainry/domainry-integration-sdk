@@ -10,7 +10,17 @@ import (
 const IntegrationHTTPAdapterContractVersion = "domainry-integration-http-adapter-v1"
 
 const (
+	ActionIntegrationConnectionAccountsReadAccess = "integration.connection_accounts.read_access"
+	ActionIntegrationConnectionAccountsRead       = "integration.connection_accounts.read"
+	ActionIntegrationOAuthApplicationsList        = "integration.oauth_applications.list"
+	ActionIntegrationOAuthApplicationsUpsert      = "integration.oauth_applications.upsert"
+	ActionIntegrationOAuthAuthorizationsOptions   = "integration.oauth_authorizations.options"
+	ActionIntegrationOAuthAuthorizationsStart     = "integration.oauth_authorizations.start"
+	ActionIntegrationOAuthAuthorizationsGet       = "integration.oauth_authorizations.get"
+	ActionIntegrationOAuthAuthorizationsComplete  = "integration.oauth_authorizations.complete"
+
 	CapabilityIntegrationConnections   = "integration.connections"
+	CapabilityIntegrationAccounts      = "integration.connection_accounts"
 	CapabilityIntegrationCredentials   = "integration.credentials"
 	CapabilityIntegrationOperations    = "integration.operations"
 	CapabilityIntegrationSubscriptions = "integration.subscriptions"
@@ -24,6 +34,11 @@ const (
 	ActionIntegrationConnectionsDelete                  = "integration.connections.delete"
 	ActionIntegrationConnectionsDisable                 = "integration.connections.disable"
 	ActionIntegrationConnectionsTestOperation           = "integration.connections.test_operation"
+	ActionIntegrationConnectionsRegisterAccount         = "integration.connections.register_account"
+	ActionIntegrationConnectionAccountsList             = "integration.connection_accounts.list"
+	ActionIntegrationConnectionAccountsGet              = "integration.connection_accounts.get"
+	ActionIntegrationConnectionAccountsTest             = "integration.connection_accounts.test"
+	ActionIntegrationConnectionAccountsRevoke           = "integration.connection_accounts.revoke"
 	ActionIntegrationSecretsList                        = "integration.secrets.list"
 	ActionIntegrationSecretsUpsert                      = "integration.secrets.upsert"
 	ActionIntegrationSecretsDisable                     = "integration.secrets.disable"
@@ -94,6 +109,9 @@ func integrationHTTPRoutes() []HTTPRouteContract {
 	admin := func(key, pattern, browserClientMethod string) HTTPRouteContract {
 		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposureManagement}, actioncontract.AuthorizationAuthenticated, true)
 	}
+	member := func(key, pattern, browserClientMethod string) HTTPRouteContract {
+		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposurePublic}, actioncontract.AuthorizationAuthenticated, true)
+	}
 	user := func(key, pattern, browserClientMethod string) HTTPRouteContract {
 		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposurePublic}, actioncontract.AuthorizationAuthenticated, false)
 	}
@@ -110,6 +128,19 @@ func integrationHTTPRoutes() []HTTPRouteContract {
 		admin(ActionIntegrationConnectionsDelete, "DELETE /integration/connections/{connectionKey}", "deleteConnection"),
 		admin(ActionIntegrationConnectionsDisable, "POST /integration/connections/{connectionKey}/disable", "disableConnection"),
 		admin(ActionIntegrationConnectionsTestOperation, "POST /integration/connections/{connectionKey}/test-operation", "testOperation"),
+		admin(ActionIntegrationConnectionsRegisterAccount, "POST /integration/connections/{connectionKey}/account", "registerConnectionAccount"),
+		member(ActionIntegrationConnectionAccountsList, "GET /integration/connection-accounts", "listConnectionAccounts"),
+		member(ActionIntegrationConnectionAccountsGet, "GET /integration/connection-accounts/{connectionKey}", "getConnectionAccount"),
+		member(ActionIntegrationConnectionAccountsTest, "POST /integration/connection-accounts/{connectionKey}/test", "testConnectionAccount"),
+		member(ActionIntegrationConnectionAccountsRevoke, "POST /integration/connection-accounts/{connectionKey}/revoke", "revokeConnectionAccount"),
+		member(ActionIntegrationConnectionAccountsReadAccess, "POST /integration/connection-accounts/{connectionKey}/read-access", "authorizeConnectionAccountRead"),
+		member(ActionIntegrationConnectionAccountsRead, "POST /integration/connection-accounts/{connectionKey}/read", "readConnectionAccount"),
+		admin(ActionIntegrationOAuthApplicationsList, "GET /integration/oauth-applications", "listOAuthApplications"),
+		admin(ActionIntegrationOAuthApplicationsUpsert, "PUT /integration/oauth-applications/{applicationKey}", "upsertOAuthApplication"),
+		member(ActionIntegrationOAuthAuthorizationsOptions, "GET /integration/oauth-authorizations/options", "listOAuthAuthorizationOptions"),
+		member(ActionIntegrationOAuthAuthorizationsStart, "POST /integration/oauth-authorizations", "startOAuthAuthorization"),
+		member(ActionIntegrationOAuthAuthorizationsGet, "GET /integration/oauth-authorizations/{sessionID}", "getOAuthAuthorization"),
+		member(ActionIntegrationOAuthAuthorizationsComplete, "POST /integration/oauth-authorizations/callback", "completeOAuthAuthorization"),
 		admin(ActionIntegrationSecretsList, "GET /integration/secrets", "listSecrets"),
 		admin(ActionIntegrationSecretsUpsert, "PUT /integration/secrets/{secretKey}", "upsertSecret"),
 		admin(ActionIntegrationSecretsDisable, "POST /integration/secrets/{secretKey}/disable", "disableSecret"),
@@ -145,7 +176,7 @@ func integrationHTTPRoutes() []HTTPRouteContract {
 func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []actioncontract.Exposure, strategy actioncontract.AuthorizationStrategy, requirePermission bool) HTTPRouteContract {
 	method, path, _ := strings.Cut(strings.TrimSpace(pattern), " ")
 	effect, risk, idempotency, auditClass := actioncontract.EffectWrite, actioncontract.RiskMedium, "caller_key_or_natural_resource_identity", "integration_owner_mutation"
-	if method == "GET" || method == "HEAD" || method == "OPTIONS" {
+	if method == "GET" || method == "HEAD" || method == "OPTIONS" || key == ActionIntegrationConnectionAccountsReadAccess || key == ActionIntegrationConnectionAccountsRead {
 		effect, risk, idempotency, auditClass = actioncontract.EffectRead, actioncontract.RiskLow, "not_applicable", "integration_owner_read"
 	}
 	if strings.HasPrefix(path, "/integration/webhooks/") {
@@ -177,6 +208,8 @@ func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []
 
 func integrationHTTPCapability(key string) (string, string) {
 	switch {
+	case strings.HasPrefix(key, "integration.connection_accounts."), strings.HasPrefix(key, "integration.oauth_authorizations."), key == ActionIntegrationConnectionsRegisterAccount:
+		return CapabilityIntegrationAccounts, "Current-user connection accounts"
 	case strings.HasPrefix(key, "integration.secrets."), strings.HasPrefix(key, "integration.api_keys."), strings.HasPrefix(key, "integration.external_identities."):
 		return CapabilityIntegrationCredentials, "Integration credentials"
 	case strings.HasPrefix(key, "integration.webhook_subscriptions."), strings.HasPrefix(key, "integration.web_push."), strings.HasPrefix(key, "integration.web_push_subscriptions."), strings.HasPrefix(key, "integration.webhooks."):

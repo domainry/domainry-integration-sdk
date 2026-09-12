@@ -16,6 +16,7 @@ import (
 func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	requirementsSeen := false
 	webPushCalls := map[string]bool{}
+	accountCalls := map[string]bool{}
 	fixture, err := contracttest.NewFixtureBinding("integration")
 	if err != nil {
 		t.Fatal(err)
@@ -90,6 +91,46 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			_ = json.NewEncoder(response).Encode(map[string]int{"cleaned": 2})
 			return
 		}
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/management/connections/primary/account" {
+			if request.URL.Query().Get("workspace_id") != "workspace-a" || request.URL.Query().Get("actor_id") != "admin" {
+				t.Fatalf("account registration query=%s", request.URL.RawQuery)
+			}
+			var input integrationsdk.ConnectionAccountRegistration
+			if err := json.NewDecoder(request.Body).Decode(&input); err != nil || input.Scope != integrationsdk.ConnectionAccountScopePersonal || input.OwnerUserID != "user-a" {
+				t.Fatalf("account registration=%#v err=%v", input, err)
+			}
+			accountCalls["register"] = true
+			_ = json.NewEncoder(response).Encode(integrationsdk.ConnectionAccount{Key: "primary", Scope: input.Scope, OwnerUserID: input.OwnerUserID, Status: "active", UpdatedAt: "revision-1"})
+			return
+		}
+		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/connection-accounts" {
+			assertConnectionAccountSubject(t, request)
+			accountCalls["list"] = true
+			_ = json.NewEncoder(response).Encode(map[string]any{"items": []integrationsdk.ConnectionAccount{{Key: "primary", Scope: integrationsdk.ConnectionAccountScopePersonal, OwnerUserID: "user-a", Status: "active", UpdatedAt: "revision-1"}}})
+			return
+		}
+		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/connection-accounts/primary" {
+			assertConnectionAccountSubject(t, request)
+			accountCalls["get"] = true
+			_ = json.NewEncoder(response).Encode(integrationsdk.ConnectionAccount{Key: "primary", Scope: integrationsdk.ConnectionAccountScopePersonal, OwnerUserID: "user-a", Status: "active", UpdatedAt: "revision-1"})
+			return
+		}
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/connection-accounts/primary/test" {
+			assertConnectionAccountSubject(t, request)
+			accountCalls["test"] = true
+			_ = json.NewEncoder(response).Encode(integrationsdk.ConnectionAccountTestResult{Account: integrationsdk.ConnectionAccount{Key: "primary", Scope: integrationsdk.ConnectionAccountScopePersonal, OwnerUserID: "user-a", Status: "active"}, Operation: "test_connection"})
+			return
+		}
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/connection-accounts/primary/revoke" {
+			assertConnectionAccountSubject(t, request)
+			var input map[string]string
+			if err := json.NewDecoder(request.Body).Decode(&input); err != nil || input["expected_updated_at"] != "revision-1" {
+				t.Fatalf("account revoke=%#v err=%v", input, err)
+			}
+			accountCalls["revoke"] = true
+			_ = json.NewEncoder(response).Encode(integrationsdk.ConnectionAccount{Key: "primary", Scope: integrationsdk.ConnectionAccountScopePersonal, OwnerUserID: "user-a", Status: "revoked", UpdatedAt: "revision-2"})
+			return
+		}
 		http.NotFound(response, request)
 	}))
 	defer server.Close()
@@ -135,5 +176,39 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 		if !webPushCalls[call] {
 			t.Fatalf("missing Web Push SaaS call %q", call)
 		}
+	}
+	accountAdmin := binding.(integrationsdk.ConnectionAccountAdministrationBinding).ConnectionAccountAdministration()
+	registered, err := accountAdmin.RegisterConnectionAccount(context.Background(), "workspace-a", "primary", "admin", integrationsdk.ConnectionAccountRegistration{Scope: integrationsdk.ConnectionAccountScopePersonal, OwnerUserID: "user-a"})
+	if err != nil || registered.OwnerUserID != "user-a" {
+		t.Fatalf("registered=%#v err=%v", registered, err)
+	}
+	accounts := binding.(integrationsdk.ConnectionAccountsBinding).ConnectionAccounts()
+	subject := integrationsdk.ConnectionAccountSubject{WorkspaceID: "workspace-a", UserID: "user-a", Access: integrationsdk.ConnectionAccountAccess{Personal: true, Workspace: true}}
+	if listed, err := accounts.ListConnectionAccounts(context.Background(), subject); err != nil || len(listed) != 1 || listed[0].Key != "primary" {
+		t.Fatalf("accounts=%#v err=%v", listed, err)
+	}
+	if value, err := accounts.GetConnectionAccount(context.Background(), subject, "primary"); err != nil || value.OwnerUserID != "user-a" {
+		t.Fatalf("account=%#v err=%v", value, err)
+	}
+	if result, err := accounts.TestConnectionAccount(context.Background(), subject, "primary", integrationsdk.ConnectionTestRequest{Operation: "test_connection"}); err != nil || result.Operation != "test_connection" {
+		t.Fatalf("test result=%#v err=%v", result, err)
+	}
+	if revoked, err := accounts.RevokeConnectionAccount(context.Background(), subject, "primary", "revision-1"); err != nil || revoked.Status != "revoked" {
+		t.Fatalf("revoked=%#v err=%v", revoked, err)
+	}
+	if _, err := accounts.GetConnectionAccount(context.Background(), integrationsdk.ConnectionAccountSubject{WorkspaceID: "workspace-a"}, "primary"); err == nil {
+		t.Fatal("incomplete account subject was accepted")
+	}
+	for _, call := range []string{"register", "list", "get", "test", "revoke"} {
+		if !accountCalls[call] {
+			t.Fatalf("missing connection account SaaS call %q", call)
+		}
+	}
+}
+
+func assertConnectionAccountSubject(t *testing.T, request *http.Request) {
+	t.Helper()
+	if request.URL.Query().Get("workspace_id") != "workspace-a" || request.URL.Query().Get("user_id") != "user-a" || request.URL.Query().Get("allow_personal") != "true" || request.URL.Query().Get("allow_workspace") != "true" {
+		t.Fatalf("connection account query=%s", request.URL.RawQuery)
 	}
 }

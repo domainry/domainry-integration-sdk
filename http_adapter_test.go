@@ -42,8 +42,8 @@ func TestIntegrationHTTPAdapterContractIsCompleteAndSourceOwned(t *testing.T) {
 			}
 		}
 	}
-	if browserRoutes != 37 {
-		t.Fatalf("expected 37 browser-owned routes, got %d", browserRoutes)
+	if browserRoutes != 50 {
+		t.Fatalf("expected 50 browser-owned routes, got %d", browserRoutes)
 	}
 	if len(seen) != len(contract.OpenAPI) {
 		t.Fatalf("route/OpenAPI mismatch: routes=%d operations=%d", len(seen), len(contract.OpenAPI))

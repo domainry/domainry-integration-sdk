@@ -318,3 +318,32 @@ export interface IntegrationEvent {
   received_at?: string
   updated_at?: string
 }
+
+export interface IntegrationConnectionAccount {
+ key: string; workspace_id?: string; connector_key: string; provider_key: string;
+ name?: string; scope: 'personal' | 'workspace'; owner_user_id?: string;
+ status: string; created_at?: string; updated_at: string;
+ readiness?: {available: boolean; state: string; granted_scopes?: string[]; test?: {allowed: boolean; state: string; scope_alternatives?: string[][]}};
+}
+
+export interface IntegrationConnectionAccountReadOperation { operation: string; contract_sha256: string }
+export interface IntegrationConnectionAccountReadRequest extends IntegrationConnectionAccountReadOperation { request_id: string; payload: unknown }
+export interface IntegrationConnectionAccountReadSource extends IntegrationConnectionAccountReadOperation {
+ workspace_id: string; connection_key: string; connector_key: string; provider_key: string; account_updated_at: string;
+}
+export interface IntegrationConnectionAccountReadAccess { source: IntegrationConnectionAccountReadSource; scope_alternatives: string[][] }
+export interface IntegrationConnectionAccountReadResult { source: IntegrationConnectionAccountReadSource; invocation_id: string; read_at: string; payload_available: boolean; payload?: unknown }
+export interface IntegrationOAuthApplication {
+ key: string; workspace_id: string; connector_key: string; provider_key: string;
+ name: string; client_id: string; redirect_uri: string; scopes: string[];
+ connection_config?: Record<string, unknown>; configured: boolean; enabled: boolean; updated_at: string;
+}
+export type IntegrationOAuthApplicationInput = Omit<IntegrationOAuthApplication, 'key' | 'workspace_id' | 'configured' | 'updated_at'> & {client_secret?: string; expected_updated_at?: string};
+export interface IntegrationOAuthAuthorizationOption {key: string; connector_key: string; provider_key: string; name: string; scopes: string[]}
+export interface IntegrationOAuthAuthorizationInput {application_key: string; name: string; scope: 'personal' | 'workspace'; scopes: string[]}
+export interface IntegrationOAuthAuthorizationSession {
+ id: string; status: 'pending' | 'exchanging' | 'connected' | 'rejected' | 'expired' | 'needs_reauthorization';
+ application_key: string; scope: 'personal' | 'workspace'; requested_scopes: string[];
+ granted_scopes?: string[]; account?: IntegrationConnectionAccount; expires_at: string; authorization_url?: string;
+}
+export interface IntegrationOAuthAuthorizationCallback {state: string; code?: string; error?: string}

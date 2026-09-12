@@ -1,6 +1,18 @@
 export { IntegrationClient } from './client.js'
 export type { IntegrationQuery } from './client.js'
 export type {
+  IntegrationConnectionAccountReadOperation,
+  IntegrationConnectionAccountReadRequest,
+  IntegrationConnectionAccountReadSource,
+  IntegrationConnectionAccountReadAccess,
+  IntegrationConnectionAccountReadResult,
+  IntegrationConnectionAccount,
+  IntegrationOAuthApplication,
+  IntegrationOAuthApplicationInput,
+  IntegrationOAuthAuthorizationOption,
+  IntegrationOAuthAuthorizationInput,
+  IntegrationOAuthAuthorizationSession,
+  IntegrationOAuthAuthorizationCallback,
   IntegrationClientDependencies,
   IntegrationCatalog,
   IntegrationAPIKey,
