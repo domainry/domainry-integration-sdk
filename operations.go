@@ -42,6 +42,8 @@ type InvocationQuery struct {
 }
 
 type ProviderCallRequest struct {
+	// Source comes from the immutable host execution, never model/browser args.
+	Source            InvocationSource        `json:"source,omitempty"`
 	RequestID         string                  `json:"request_id"`
 	WorkspaceID       string                  `json:"workspace_id"`
 	ConnectorKey      string                  `json:"connector_key"`
@@ -52,6 +54,24 @@ type ProviderCallRequest struct {
 	MaskedDestination string                  `json:"masked_destination,omitempty"`
 	ActorID           string                  `json:"actor_id,omitempty"`
 	RoleKey           string                  `json:"role_key,omitempty"`
+}
+
+type InvocationSource struct {
+	ExecutionID string `json:"execution_id,omitempty"`
+	ObjectKey   string `json:"object_key,omitempty"`
+	RecordID    string `json:"record_id,omitempty"`
+}
+
+func (s InvocationSource) Validate() error {
+	for _, v := range []string{s.ExecutionID, s.ObjectKey, s.RecordID} {
+		if v != "" && !boundedAccountWriteValue(v, 255) {
+			return fmt.Errorf("Integration invocation source invalid")
+		}
+	}
+	if s.RecordID != "" && (s.ExecutionID == "" || s.ObjectKey == "") {
+		return fmt.Errorf("Integration invocation source incomplete")
+	}
+	return nil
 }
 
 // ProviderCallPersistence controls whether request/response bodies may enter
@@ -65,6 +85,9 @@ const (
 )
 
 func (r ProviderCallRequest) Validate() error {
+	if err := r.Source.Validate(); err != nil {
+		return err
+	}
 	for name, value := range map[string]string{"request_id": r.RequestID, "workspace_id": r.WorkspaceID, "connector_key": r.ConnectorKey, "operation": r.Operation} {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("Integration provider call %s is required", name)

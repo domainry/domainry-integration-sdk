@@ -76,7 +76,7 @@ func (b *binding) ValidateCapabilityCandidate(ctx context.Context, request modul
 }
 
 func (*binding) Descriptor() integrationsdk.Descriptor {
-	return integrationsdk.Descriptor{ProtocolVersion: integrationsdk.ProtocolVersionV1, Mode: integrationsdk.DeploymentModeSaaS, Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "connection_accounts.manage", "connection_accounts.read", "connection_accounts.write", "oauth_applications.manage", "oauth_authorizations.manage", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query"}}
+	return integrationsdk.Descriptor{ProtocolVersion: integrationsdk.ProtocolVersionV1, Mode: integrationsdk.DeploymentModeSaaS, Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "connection_accounts.manage", "connection_accounts.read", "connection_accounts.write", "oauth_applications.manage", "oauth_authorizations.manage", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query", "subjects.lifecycle"}}
 }
 func (b *binding) Catalog() integrationsdk.Catalog                               { return b.client }
 func (b *binding) Requirements() integrationsdk.Requirements                     { return b.client }

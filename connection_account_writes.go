@@ -102,6 +102,11 @@ type ConnectionAccountWriteResult struct {
 // Subject and RequestID are trusted host inputs. Models and browsers cannot
 // supply authorization, credentials or execution identities. Read receipt is
 // owner-local evidence lookup: it performs no vendor I/O and never sends again.
+// Hosts resolve subject.Access with the current write action for write/recovery
+// operations, or with the current account data read action for an independently
+// authorized result view. Receipt lookup always binds the original actor,
+// request ID, exact payload/source fingerprint and current account/OAuth state;
+// a read subject must never be forwarded to WriteConnectionAccount.
 type ConnectionAccountWrites interface {
 	AuthorizeConnectionAccountWrite(context.Context, ConnectionAccountSubject, string, ConnectionAccountWriteOperation) (ConnectionAccountWriteAccess, error)
 	WriteConnectionAccount(context.Context, ConnectionAccountSubject, string, ConnectionAccountWriteRequest) (ConnectionAccountWriteResult, error)
