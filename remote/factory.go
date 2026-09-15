@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	actioncontract "github.com/domainry/domainry-foundation/action"
 	"github.com/domainry/domainry-foundation/modulecapability"
 	integrationsdk "github.com/domainry/domainry-integration-sdk"
 	"github.com/domainry/domainry-integration-sdk/saashost"
@@ -90,6 +91,9 @@ func (b *binding) ConnectionAccountAdministration() integrationsdk.ConnectionAcc
 }
 func (b *binding) Operations() integrationsdk.Operations { return b.client }
 func (*binding) Close(context.Context) error             { return nil }
+func (*binding) AuthorizationActions() ([]actioncontract.ActionDefinition, error) {
+	return integrationsdk.IntegrationAuthorizationActions()
+}
 
 type remoteClient struct {
 	base      *url.URL

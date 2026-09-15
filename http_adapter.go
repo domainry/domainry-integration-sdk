@@ -105,6 +105,30 @@ func IntegrationHTTPAdapterContract() HTTPAdapterContract {
 	}
 }
 
+// IntegrationAuthorizationActions is the complete Integration-owned action
+// manifest. Account writes are deliberately SDK-only: callers receive no HTTP
+// route that could bypass the Agent tool confirmation and execution ledger.
+func IntegrationAuthorizationActions() ([]actioncontract.ActionDefinition, error) {
+	routes := integrationHTTPRoutes()
+	actions := make([]actioncontract.ActionDefinition, 0, len(routes)+1)
+	for _, route := range routes {
+		actions = append(actions, route.Action)
+	}
+	permission := ConnectionAccountWritePermission()
+	actions = append(actions, actioncontract.ActionDefinition{
+		Key: permission.Key, Owner: permission.Owner, SourceKind: "integration_account_write",
+		CapabilityKey: CapabilityIntegrationAccounts, CapabilityLabel: "Current-user connection accounts",
+		OperationKey: permission.OperationKey, OperationLabel: permission.Label, Label: permission.Label,
+		Exposures:     []actioncontract.Exposure{actioncontract.ExposurePublic},
+		Authorization: actioncontract.Authorization{Strategy: actioncontract.AuthorizationAuthenticated},
+		NonHTTP:       []actioncontract.NonHTTPBinding{{Kind: "sdk", InvocationKey: permission.Key}},
+		EffectClass:   actioncontract.EffectWrite, RiskLevel: actioncontract.RiskMedium,
+		IdempotencyDecision: "owner_receipt_reconcile", AuditClass: "integration_account_write",
+		LifecycleStatus: actioncontract.LifecycleActive, Permission: &permission,
+	})
+	return actions, nil
+}
+
 func integrationHTTPRoutes() []HTTPRouteContract {
 	admin := func(key, pattern, browserClientMethod string) HTTPRouteContract {
 		return integrationHTTPRoute(key, pattern, browserClientMethod, []actioncontract.Exposure{actioncontract.ExposureManagement}, actioncontract.AuthorizationAuthenticated, true)

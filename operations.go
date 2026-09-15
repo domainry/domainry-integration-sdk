@@ -169,12 +169,16 @@ type WebhookReceipt struct {
 }
 
 type TriggerTarget struct {
-	Type        string         `json:"type"`
-	WorkflowKey string         `json:"workflow_key,omitempty"`
-	ObjectKey   string         `json:"object_key,omitempty"`
-	RecordID    string         `json:"record_id,omitempty"`
-	ActionKey   string         `json:"action_key,omitempty"`
-	Input       map[string]any `json:"input,omitempty"`
+	Type           string         `json:"type"`
+	WorkflowKey    string         `json:"workflow_key,omitempty"`
+	ObjectKey      string         `json:"object_key,omitempty"`
+	RecordID       string         `json:"record_id,omitempty"`
+	ActionKey      string         `json:"action_key,omitempty"`
+	AgentID        string         `json:"agent_id,omitempty"`
+	ConversationID string         `json:"conversation_id,omitempty"`
+	AgentTaskMode  string         `json:"agent_task_mode,omitempty"`
+	RelatedTaskID  string         `json:"related_task_id,omitempty"`
+	Input          map[string]any `json:"input,omitempty"`
 }
 
 type TriggerPrincipal struct {
@@ -184,12 +188,24 @@ type TriggerPrincipal struct {
 }
 
 type TriggerRequest struct {
-	EventID        string           `json:"event_id"`
-	WorkspaceID    string           `json:"workspace_id"`
-	MappingKey     string           `json:"mapping_key"`
-	IdempotencyKey string           `json:"idempotency_key"`
-	Target         TriggerTarget    `json:"target"`
-	Principal      TriggerPrincipal `json:"principal,omitempty"`
+	EventID         string           `json:"event_id"`
+	WorkspaceID     string           `json:"workspace_id"`
+	MappingKey      string           `json:"mapping_key"`
+	MappingRevision string           `json:"mapping_revision"`
+	IdempotencyKey  string           `json:"idempotency_key"`
+	Source          TriggerSource    `json:"source"`
+	Target          TriggerTarget    `json:"target"`
+	Principal       TriggerPrincipal `json:"principal,omitempty"`
+}
+
+// TriggerSource contains immutable, credential-free facts from the verified
+// Integration event. The original payload and webhook secret remain owned by
+// Integration; downstream services receive only fields selected by a mapping.
+type TriggerSource struct {
+	Provider   string `json:"provider"`
+	EventType  string `json:"event_type"`
+	ExternalID string `json:"external_id"`
+	ReceivedAt string `json:"received_at"`
 }
 
 type RuntimeExecutionReceipt struct {
@@ -203,33 +219,39 @@ type RuntimeExecutionReceipt struct {
 }
 
 // TriggerSink is implemented by Runtime. Integration owns verification,
-// event durability and mapping; Runtime owns Action/Workflow execution and
-// returns an idempotent receipt for that local execution.
+// event durability and mapping; Runtime routes Action, Workflow and finite
+// Agent task targets and returns an idempotent receipt for that local execution.
 type TriggerSink interface {
 	Trigger(context.Context, TriggerRequest) (RuntimeExecutionReceipt, error)
 }
 
 type EventMappingRequirement struct {
-	Key              string                             `json:"key"`
-	WorkspaceID      string                             `json:"workspace_id"`
-	Provider         string                             `json:"provider"`
-	ConnectionKey    string                             `json:"connection_key,omitempty"`
-	EventType        string                             `json:"event_type,omitempty"`
-	CommandPrefix    string                             `json:"command_prefix,omitempty"`
-	TargetType       string                             `json:"target_type"`
-	WorkflowKey      string                             `json:"workflow_key,omitempty"`
-	ObjectKey        string                             `json:"object_key,omitempty"`
-	ObjectKeyPath    string                             `json:"object_key_path,omitempty"`
-	RecordID         string                             `json:"record_id,omitempty"`
-	RecordIDPath     string                             `json:"record_id_path,omitempty"`
-	ActionKey        string                             `json:"action_key,omitempty"`
-	ActionKeyPath    string                             `json:"action_key_path,omitempty"`
-	ActionInput      map[string]string                  `json:"action_input,omitempty"`
-	WorkflowInput    map[string]string                  `json:"workflow_input,omitempty"`
-	EventFields      []EventFieldRequirement            `json:"event_fields,omitempty"`
-	ExternalIdentity ExternalIdentityMappingRequirement `json:"external_identity,omitempty"`
-	Payload          map[string]any                     `json:"payload,omitempty"`
-	Enabled          bool                               `json:"enabled"`
+	Key               string                             `json:"key"`
+	WorkspaceID       string                             `json:"workspace_id"`
+	Provider          string                             `json:"provider"`
+	ConnectionKey     string                             `json:"connection_key,omitempty"`
+	EventType         string                             `json:"event_type,omitempty"`
+	CommandPrefix     string                             `json:"command_prefix,omitempty"`
+	TargetType        string                             `json:"target_type"`
+	WorkflowKey       string                             `json:"workflow_key,omitempty"`
+	ObjectKey         string                             `json:"object_key,omitempty"`
+	ObjectKeyPath     string                             `json:"object_key_path,omitempty"`
+	RecordID          string                             `json:"record_id,omitempty"`
+	RecordIDPath      string                             `json:"record_id_path,omitempty"`
+	ActionKey         string                             `json:"action_key,omitempty"`
+	ActionKeyPath     string                             `json:"action_key_path,omitempty"`
+	ActionInput       map[string]string                  `json:"action_input,omitempty"`
+	WorkflowInput     map[string]string                  `json:"workflow_input,omitempty"`
+	AgentID           string                             `json:"agent_id,omitempty"`
+	ConversationID    string                             `json:"conversation_id,omitempty"`
+	AgentTaskMode     string                             `json:"agent_task_mode,omitempty"`
+	RelatedTaskID     string                             `json:"related_task_id,omitempty"`
+	RelatedTaskIDPath string                             `json:"related_task_id_path,omitempty"`
+	AgentInput        map[string]string                  `json:"agent_input,omitempty"`
+	EventFields       []EventFieldRequirement            `json:"event_fields,omitempty"`
+	ExternalIdentity  ExternalIdentityMappingRequirement `json:"external_identity,omitempty"`
+	Payload           map[string]any                     `json:"payload,omitempty"`
+	Enabled           bool                               `json:"enabled"`
 }
 
 type EventFieldRequirement struct {
@@ -268,6 +290,25 @@ func (r EventMappingRequirement) Validate() error {
 		if strings.TrimSpace(r.WorkflowKey) == "" {
 			return fmt.Errorf("Integration workflow event mapping requires workflow_key")
 		}
+	case "agent_task":
+		if strings.TrimSpace(r.AgentID) == "" || strings.TrimSpace(r.ConversationID) == "" {
+			return fmt.Errorf("Integration Agent event mapping requires agent_id and conversation_id")
+		}
+		if strings.TrimSpace(r.ExternalIdentity.SubjectPath) == "" {
+			return fmt.Errorf("Integration Agent event mapping requires external_identity.subject_path")
+		}
+		switch strings.TrimSpace(r.AgentTaskMode) {
+		case "start":
+			if strings.TrimSpace(r.RelatedTaskID) != "" || strings.TrimSpace(r.RelatedTaskIDPath) != "" {
+				return fmt.Errorf("Integration Agent start event mapping cannot declare related_task_id")
+			}
+		case "wake":
+			if strings.TrimSpace(r.RelatedTaskID) == "" && strings.TrimSpace(r.RelatedTaskIDPath) == "" {
+				return fmt.Errorf("Integration Agent wake event mapping requires related_task_id or related_task_id_path")
+			}
+		default:
+			return fmt.Errorf("Integration Agent event mapping agent_task_mode must be start or wake")
+		}
 	default:
 		return fmt.Errorf("Integration event mapping target_type %q is unsupported", r.TargetType)
 	}
@@ -305,8 +346,14 @@ func (r EventMappingRequirement) Validate() error {
 			return err
 		}
 	}
+	for key, path := range r.AgentInput {
+		if err := requireDeclared("agent_input."+key, path); err != nil {
+			return err
+		}
+	}
 	for name, path := range map[string]string{
 		"record_id_path":                 r.RecordIDPath,
+		"related_task_id_path":           r.RelatedTaskIDPath,
 		"external_identity.subject_path": r.ExternalIdentity.SubjectPath,
 		"external_identity.name_path":    r.ExternalIdentity.NamePath,
 	} {

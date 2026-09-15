@@ -69,3 +69,31 @@ func TestEventMappingRequirementClosesRuntimeTriggerTargets(t *testing.T) {
 		t.Fatal("undeclared event path accepted")
 	}
 }
+
+func TestAgentEventMappingRequiresFiniteIdentityAndDeclaredWakeReference(t *testing.T) {
+	valid := EventMappingRequirement{
+		Key: "ticket-escalated", WorkspaceID: "workspace-a", Provider: "support", TargetType: "agent_task",
+		AgentID: "agent-support", ConversationID: "conversation-support", AgentTaskMode: "wake",
+		RelatedTaskIDPath: "ticket.agent_task_id", AgentInput: map[string]string{"goal": "ticket.title"},
+		ExternalIdentity: ExternalIdentityMappingRequirement{SubjectPath: "actor.id", OnUnmapped: "error"},
+		EventFields:      []EventFieldRequirement{{Path: "ticket.agent_task_id", Type: "text"}, {Path: "ticket.title", Type: "text"}, {Path: "actor.id", Type: "text"}},
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	invalid := valid
+	invalid.AgentID = ""
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("Agent event mapping without a finite Agent accepted")
+	}
+	invalid = valid
+	invalid.RelatedTaskIDPath = "ticket.undeclared"
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("Agent event mapping with undeclared task path accepted")
+	}
+	invalid = valid
+	invalid.AgentTaskMode = "start"
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("Agent start mapping with a wake reference accepted")
+	}
+}

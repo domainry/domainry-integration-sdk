@@ -49,3 +49,20 @@ func TestIntegrationHTTPAdapterContractIsCompleteAndSourceOwned(t *testing.T) {
 		t.Fatalf("route/OpenAPI mismatch: routes=%d operations=%d", len(seen), len(contract.OpenAPI))
 	}
 }
+
+func TestIntegrationAuthorizationActionsIncludeReceiptOnlyAccountWrite(t *testing.T) {
+	actions, err := IntegrationAuthorizationActions()
+	if err != nil || len(actions) != len(IntegrationHTTPAdapterContract().Routes)+1 {
+		t.Fatalf("actions=%d err=%v", len(actions), err)
+	}
+	for _, action := range actions {
+		if action.Key != ActionIntegrationConnectionAccountsWrite {
+			continue
+		}
+		if action.HTTP != nil || len(action.NonHTTP) != 1 || action.NonHTTP[0].Kind != "sdk" || action.Permission == nil || action.Permission.Key != action.Key || action.IdempotencyDecision != "owner_receipt_reconcile" {
+			t.Fatalf("invalid account write action: %#v", action)
+		}
+		return
+	}
+	t.Fatal("Integration account write action missing")
+}
