@@ -5,7 +5,6 @@ import (
 
 	connector "github.com/domainry/domainry-connector-sdk"
 	integrationsdk "github.com/domainry/domainry-integration-sdk"
-	metadatasdk "github.com/domainry/domainry-metadata-sdk"
 	ormmigration "github.com/domainry/domainry-orm/migration"
 	"github.com/domainry/domainry-orm/sqlhost"
 )
@@ -43,6 +42,5 @@ type Host interface {
 	Migrations() MigrationRegistrar
 	Providers() ProviderRegistry
 	SecretCipher() SecretMaterialCipher
-	DefinitionStore() metadatasdk.DefinitionStore
 	RuntimeTriggers() integrationsdk.TriggerSink
 }
