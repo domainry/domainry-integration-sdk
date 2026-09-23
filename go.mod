@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/domainry/domainry-connector-sdk v0.1.2
 	github.com/domainry/domainry-foundation v0.1.0
+	github.com/domainry/domainry-metadata-sdk v0.1.4
 	github.com/domainry/domainry-orm v0.1.30
 )
 

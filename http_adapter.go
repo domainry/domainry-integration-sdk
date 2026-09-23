@@ -2,7 +2,6 @@ package integrationsdk
 
 import (
 	"strings"
-	"unicode"
 
 	actioncontract "github.com/domainry/domainry-foundation/action"
 )
@@ -84,11 +83,10 @@ func (route HTTPRouteContract) Pattern() string {
 }
 
 type HTTPAdapterContract struct {
-	ContractVersion string                    `json:"contract_version"`
-	Owner           string                    `json:"owner"`
-	Name            string                    `json:"name"`
-	Routes          []HTTPRouteContract       `json:"routes"`
-	OpenAPI         map[string]map[string]any `json:"openapi_operations"`
+	ContractVersion string              `json:"contract_version"`
+	Owner           string              `json:"owner"`
+	Name            string              `json:"name"`
+	Routes          []HTTPRouteContract `json:"routes"`
 }
 
 // IntegrationHTTPAdapterContract is the deployment-neutral HTTP contract
@@ -101,7 +99,6 @@ func IntegrationHTTPAdapterContract() HTTPAdapterContract {
 		Owner:           "integration",
 		Name:            "integration_product",
 		Routes:          routes,
-		OpenAPI:         integrationHTTPOperations(routes),
 	}
 }
 
@@ -250,71 +247,4 @@ func integrationBrowserClientPackage(method string) string {
 		return ""
 	}
 	return "@domainry/integration-client"
-}
-
-func integrationHTTPOperations(routes []HTTPRouteContract) map[string]map[string]any {
-	result := make(map[string]map[string]any, len(routes))
-	for _, route := range routes {
-		pattern := route.Pattern()
-		method, _, found := strings.Cut(pattern, " ")
-		if !found {
-			continue
-		}
-		operation := map[string]any{
-			"operationId": integrationHTTPOperationID(route.Action.Key),
-			"tags":        []string{"Integration"},
-			"summary":     route.Action.Label,
-			"responses": map[string]any{
-				integrationHTTPSuccessStatus(method): map[string]any{
-					"description": "Integration owner response",
-					"content": map[string]any{"application/json": map[string]any{
-						"schema": map[string]any{"type": "object", "additionalProperties": true},
-					}},
-				},
-			},
-		}
-		if route.BrowserClientMethod != "" {
-			operation["x-domainry-owner-client-package"] = route.BrowserClientPackage
-			operation["x-domainry-owner-client-method"] = route.BrowserClientMethod
-		}
-		if route.Action.Authorization.Strategy == actioncontract.AuthorizationSigned {
-			operation["security"] = []any{}
-		} else {
-			operation["security"] = []map[string]any{{"BearerAuth": []string{}}}
-		}
-		if method != "GET" && method != "DELETE" {
-			operation["requestBody"] = map[string]any{
-				"required": false,
-				"content": map[string]any{"application/json": map[string]any{
-					"schema": map[string]any{"type": "object", "additionalProperties": true},
-				}},
-			}
-		}
-		result[pattern] = operation
-	}
-	return result
-}
-
-func integrationHTTPOperationID(actionKey string) string {
-	parts := []string{}
-	for _, segment := range strings.FieldsFunc(actionKey, func(value rune) bool {
-		return value == '.' || value == '_' || value == '-'
-	}) {
-		if segment == "integration" {
-			continue
-		}
-		runes := []rune(segment)
-		if len(runes) != 0 {
-			runes[0] = unicode.ToUpper(runes[0])
-			parts = append(parts, string(runes))
-		}
-	}
-	return "integration" + strings.Join(parts, "")
-}
-
-func integrationHTTPSuccessStatus(method string) string {
-	if strings.EqualFold(strings.TrimSpace(method), "DELETE") {
-		return "204"
-	}
-	return "200"
 }

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/domainry/domainry-foundation/modulecapability"
 )
 
 const ProtocolVersionV1 = "domainry-integration-protocol-v1"
@@ -195,7 +193,6 @@ type Delivery interface {
 }
 
 type Binding interface {
-	modulecapability.Binding
 	Descriptor() Descriptor
 	Catalog() Catalog
 	Requirements() Requirements

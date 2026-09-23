@@ -11,9 +11,9 @@ Deployment-neutral contracts between Domainry Runtime and Integration running as
   disclosure, including schemas, references, examples, repair errors and
   source symbols. `SpecializeIntegrationAuthoringCapability` derives
   Connector-specific examples from the source-owned Connector definition.
-- `IntegrationHTTPAdapterContract` is the canonical Module HTTP route,
-  governance and OpenAPI contract. Runtime and Plane may aggregate it, but
-  must not re-author Integration paths or schemas.
+- `IntegrationHTTPAdapterContract` is the canonical Module HTTP route and
+  governance contract. Current Go source and contract tests are authoritative;
+  Runtime and Plane must not re-author Integration paths or payload types.
 - `modulehost` describes database, dialect, migration, provider registry, secret-cipher, and Runtime Trigger capabilities borrowed by an embedded module.
 - `remote` contains the SaaS client implementation.
 - `saashost` describes SaaS composition.

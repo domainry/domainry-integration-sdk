@@ -6,6 +6,8 @@ github.com/domainry/domainry-connector-sdk v0.1.2 h1:8aWP/B+s4g2nSh6SlbbE5oQHUCp
 github.com/domainry/domainry-connector-sdk v0.1.2/go.mod h1:y3YMg09XmWCuxyIeYb1d4xC4AkFmqGWbrm+OaumeyY8=
 github.com/domainry/domainry-foundation v0.1.0 h1:3QEfkVSrLUHvDztuGp6SfxVqwoQ62KeLApbRF0disX0=
 github.com/domainry/domainry-foundation v0.1.0/go.mod h1:Gy+KTlqbubYK5bK005y0DBwm04LP8Kpx+n7/P6QGjjY=
+github.com/domainry/domainry-metadata-sdk v0.1.4 h1:amtShktqDSrix/VLra7mA+7IG4cdPSoNq4EYKPok9ME=
+github.com/domainry/domainry-metadata-sdk v0.1.4/go.mod h1:3ezsvuyNY9WxSqbkWJOuLNzoWi0Pj6Fa8x/SJ22WaZo=
 github.com/domainry/domainry-orm v0.1.30 h1:5QOtG2qRzV1PhiioS2aKfCoEt9ab3OBucwicHAn/5HQ=
 github.com/domainry/domainry-orm v0.1.30/go.mod h1:gB/ooN737tsBYHbeHqCpngEprvdvZKp0Zygtzv+IPJY=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=

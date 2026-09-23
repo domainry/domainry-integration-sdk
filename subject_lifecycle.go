@@ -10,6 +10,13 @@ import (
 // not expose it. Provenance comes from the authenticated Runtime coordinator.
 type SubjectLifecycleBinding interface{ SubjectLifecycle() SubjectLifecycle }
 
+// SubjectLifecyclePersistenceBinding is implemented by an embedded owner whose
+// database also contains Lifecycle's shared subject fence and step journal.
+// Hosts bind it only after Lifecycle has installed those tables.
+type SubjectLifecyclePersistenceBinding interface {
+	BindSubjectLifecyclePersistence(context.Context) error
+}
+
 type SubjectRecordReference struct {
 	ObjectKey string `json:"object_key"`
 	RecordID  string `json:"record_id"`
