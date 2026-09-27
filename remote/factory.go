@@ -74,8 +74,9 @@ func (b *binding) ConnectionAccountReads() integrationsdk.ConnectionAccountReads
 func (b *binding) ConnectionAccountAdministration() integrationsdk.ConnectionAccountAdministration {
 	return b.client
 }
-func (b *binding) Operations() integrationsdk.Operations { return b.client }
-func (*binding) Close(context.Context) error             { return nil }
+func (b *binding) Operations() integrationsdk.Operations         { return b.client }
+func (b *binding) RoutedWebhooks() integrationsdk.RoutedWebhooks { return b.client }
+func (*binding) Close(context.Context) error                     { return nil }
 func (*binding) AuthorizationActions() ([]actioncontract.ActionDefinition, error) {
 	return integrationsdk.IntegrationAuthorizationActions()
 }
@@ -228,6 +229,19 @@ func (c *remoteClient) TestConnectionAccount(ctx context.Context, subject integr
 	return value, err
 }
 
+func (c *remoteClient) RetryConnectionAccountBackgroundTask(ctx context.Context, subject integrationsdk.ConnectionAccountSubject, key, taskKey string, request integrationsdk.ConnectionAccountBackgroundRetryRequest) (integrationsdk.ConnectionAccountBackgroundTask, error) {
+	if err := subject.Validate(); err != nil {
+		return integrationsdk.ConnectionAccountBackgroundTask{}, err
+	}
+	if strings.TrimSpace(key) == "" || strings.TrimSpace(taskKey) == "" || strings.TrimSpace(request.ExpectedUpdatedAt) == "" {
+		return integrationsdk.ConnectionAccountBackgroundTask{}, fmt.Errorf("Integration background retry target and version are required")
+	}
+	var value integrationsdk.ConnectionAccountBackgroundTask
+	resource := "/" + url.PathEscape(strings.TrimSpace(key)) + "/background/" + url.PathEscape(strings.TrimSpace(taskKey)) + "/retry"
+	err := c.call(ctx, http.MethodPost, connectionAccountPath(resource, subject), request, &value)
+	return value, err
+}
+
 func (c *remoteClient) RevokeConnectionAccount(ctx context.Context, subject integrationsdk.ConnectionAccountSubject, key, expectedUpdatedAt string) (integrationsdk.ConnectionAccount, error) {
 	if err := subject.Validate(); err != nil {
 		return integrationsdk.ConnectionAccount{}, err
@@ -251,6 +265,13 @@ func (c *remoteClient) ListConnections(ctx context.Context, workspaceID string) 
 	err := c.call(ctx, http.MethodGet, managementPath("connections", workspaceID), nil, &response)
 	return response.Items, err
 }
+
+func (c *remoteClient) ProviderRunSnapshot(ctx context.Context) (integrationsdk.ProviderRunSnapshot, error) {
+	var value integrationsdk.ProviderRunSnapshot
+	err := c.call(ctx, http.MethodGet, "/integration/v1/operations/provider-run-snapshot", nil, &value)
+	return value, err
+}
+
 func (c *remoteClient) GetConnection(ctx context.Context, workspaceID, key string) (integrationsdk.Connection, error) {
 	var value integrationsdk.Connection
 	err := c.call(ctx, http.MethodGet, managementPath("connections/"+url.PathEscape(strings.TrimSpace(key)), workspaceID), nil, &value)
@@ -411,6 +432,15 @@ func (c *remoteClient) AcceptWebhook(ctx context.Context, request integrationsdk
 	return value, err
 }
 
+func (c *remoteClient) AcceptRoutedWebhook(ctx context.Context, request integrationsdk.WebhookRequest) (integrationsdk.RoutedWebhookReceipt, error) {
+	if err := request.Validate(); err != nil {
+		return integrationsdk.RoutedWebhookReceipt{}, err
+	}
+	var value integrationsdk.RoutedWebhookReceipt
+	err := c.call(ctx, http.MethodPost, "/integration/v1/inbound/routed-webhooks", request, &value)
+	return value, err
+}
+
 func (c *remoteClient) ListEvents(ctx context.Context, query integrationsdk.EventQuery) ([]integrationsdk.Event, error) {
 	var response struct {
 		Items []integrationsdk.Event `json:"items"`
@@ -442,6 +472,7 @@ func (c *remoteClient) ReplayEvent(ctx context.Context, workspaceID, id string) 
 }
 
 var _ integrationsdk.Operations = (*remoteClient)(nil)
+var _ integrationsdk.RoutedWebhooks = (*remoteClient)(nil)
 
 func (c *remoteClient) call(ctx context.Context, method, path string, body any, target any) error {
 	reference, err := url.Parse(path)

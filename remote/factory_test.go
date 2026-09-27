@@ -25,6 +25,10 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			})
 			return
 		}
+		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/operations/provider-run-snapshot" {
+			_ = json.NewEncoder(response).Encode(integrationsdk.ProviderRunSnapshot{ReadyDue: 12, ExpiredProcessing: 2})
+			return
+		}
 		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/deliveries" {
 			var delivery integrationsdk.DeliveryRequest
 			if err := json.NewDecoder(request.Body).Decode(&delivery); err != nil || delivery.MessageID != "message-1" || delivery.DeduplicationKey != "record:1:sync" {
@@ -109,6 +113,16 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 			_ = json.NewEncoder(response).Encode(integrationsdk.ConnectionAccountTestResult{Account: integrationsdk.ConnectionAccount{Key: "primary", Scope: integrationsdk.ConnectionAccountScopePersonal, OwnerUserID: "user-a", Status: "active"}, Operation: "test_connection"})
 			return
 		}
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/connection-accounts/primary/background/gmail_sync/retry" {
+			assertConnectionAccountSubject(t, request)
+			var input integrationsdk.ConnectionAccountBackgroundRetryRequest
+			if err := json.NewDecoder(request.Body).Decode(&input); err != nil || input.ExpectedUpdatedAt != "2026-09-27T00:00:00Z" {
+				t.Fatalf("account background retry=%#v err=%v", input, err)
+			}
+			accountCalls["retry"] = true
+			_ = json.NewEncoder(response).Encode(integrationsdk.ConnectionAccountBackgroundTask{TaskKey: "gmail_sync", Status: "ready"})
+			return
+		}
 		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/connection-accounts/primary/revoke" {
 			assertConnectionAccountSubject(t, request)
 			var input map[string]string
@@ -126,6 +140,13 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	binding, err := NewFactory(Options{BaseURL: server.URL, Token: "secret", HTTPClient: server.Client()}).OpenSaaS(context.Background(), integrationsdk.ApplicationRef{RuntimeID: "runtime-a"}, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	monitor, ok := binding.(integrationsdk.ManagementBinding).Management().(integrationsdk.ProviderRunMonitoring)
+	if !ok {
+		t.Fatal("remote Management has no provider-run monitoring port")
+	}
+	if snapshot, err := monitor.ProviderRunSnapshot(context.Background()); err != nil || snapshot.ReadyDue != 12 || snapshot.ExpiredProcessing != 2 {
+		t.Fatalf("remote provider-run snapshot=%+v err=%v", snapshot, err)
 	}
 	if err := binding.Requirements().SynchronizeConnections(context.Background(), []integrationsdk.ConnectionRequirement{{Key: "primary", WorkspaceID: "workspace-a", ConnectorKey: "crm", ProviderKey: "probe", Config: json.RawMessage(`{}`)}}); err != nil {
 		t.Fatal(err)
@@ -180,13 +201,16 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	if result, err := accounts.TestConnectionAccount(context.Background(), subject, "primary", integrationsdk.ConnectionTestRequest{Operation: "test_connection"}); err != nil || result.Operation != "test_connection" {
 		t.Fatalf("test result=%#v err=%v", result, err)
 	}
+	if task, err := accounts.RetryConnectionAccountBackgroundTask(context.Background(), subject, "primary", "gmail_sync", integrationsdk.ConnectionAccountBackgroundRetryRequest{ExpectedUpdatedAt: "2026-09-27T00:00:00Z"}); err != nil || task.Status != "ready" {
+		t.Fatalf("retry result=%#v err=%v", task, err)
+	}
 	if revoked, err := accounts.RevokeConnectionAccount(context.Background(), subject, "primary", "revision-1"); err != nil || revoked.Status != "revoked" {
 		t.Fatalf("revoked=%#v err=%v", revoked, err)
 	}
 	if _, err := accounts.GetConnectionAccount(context.Background(), integrationsdk.ConnectionAccountSubject{WorkspaceID: "workspace-a"}, "primary"); err == nil {
 		t.Fatal("incomplete account subject was accepted")
 	}
-	for _, call := range []string{"register", "list", "get", "test", "revoke"} {
+	for _, call := range []string{"register", "list", "get", "test", "retry", "revoke"} {
 		if !accountCalls[call] {
 			t.Fatalf("missing connection account SaaS call %q", call)
 		}

@@ -35,8 +35,8 @@ func TestIntegrationHTTPAdapterContractIsCompleteAndSourceOwned(t *testing.T) {
 			}
 		}
 	}
-	if browserRoutes != 50 {
-		t.Fatalf("expected 50 browser-owned routes, got %d", browserRoutes)
+	if browserRoutes != 51 {
+		t.Fatalf("expected 51 browser-owned routes, got %d", browserRoutes)
 	}
 }
 

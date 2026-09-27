@@ -168,6 +168,17 @@ type WebhookReceipt struct {
 	Format    string `json:"challenge_format,omitempty"`
 }
 
+// RoutedWebhookReceipt is the bounded response for one deployment-level
+// provider notification. Target workspace and connection identities are never
+// returned to the untrusted caller.
+type RoutedWebhookReceipt struct {
+	ExternalID string `json:"external_id"`
+	Routed     int    `json:"routed"`
+	Duplicate  bool   `json:"duplicate"`
+	Challenge  string `json:"challenge,omitempty"`
+	Format     string `json:"challenge_format,omitempty"`
+}
+
 type TriggerTarget struct {
 	Type           string         `json:"type"`
 	WorkflowKey    string         `json:"workflow_key,omitempty"`
@@ -185,6 +196,11 @@ type TriggerPrincipal struct {
 	ActorID      string `json:"actor_id,omitempty"`
 	RoleKey      string `json:"role_key,omitempty"`
 	ExternalName string `json:"external_name,omitempty"`
+	// OwnerUserID is an Integration-owned record ownership hint resolved from
+	// the authenticated Connection account, never from Provider payload data.
+	// Runtime keeps system authorization while assigning created records to
+	// this current Workspace user.
+	OwnerUserID string `json:"owner_user_id,omitempty"`
 }
 
 type TriggerRequest struct {
@@ -282,9 +298,6 @@ func (r EventMappingRequirement) Validate() error {
 		}
 		if strings.TrimSpace(r.ActionKey) == "" || strings.TrimSpace(r.ObjectKey) == "" {
 			return fmt.Errorf("Integration action event mapping requires object_key and action_key")
-		}
-		if strings.TrimSpace(r.RecordID) == "" && strings.TrimSpace(r.RecordIDPath) == "" {
-			return fmt.Errorf("Integration action event mapping requires record_id or record_id_path")
 		}
 	case "workflow":
 		if strings.TrimSpace(r.WorkflowKey) == "" {
@@ -403,6 +416,18 @@ type Operations interface {
 
 type OperationsBinding interface {
 	Operations() Operations
+}
+
+// RoutedWebhooks accepts a provider notification through one explicitly
+// configured ingress Connection, then routes it to account Connections by a
+// provider-verified account route. It is separate from Operations because
+// ordinary connection webhooks already know their target Connection.
+type RoutedWebhooks interface {
+	AcceptRoutedWebhook(context.Context, WebhookRequest) (RoutedWebhookReceipt, error)
+}
+
+type RoutedWebhooksBinding interface {
+	RoutedWebhooks() RoutedWebhooks
 }
 
 type ProviderResourceHealth struct {

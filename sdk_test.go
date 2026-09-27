@@ -58,6 +58,11 @@ func TestEventMappingRequirementClosesRuntimeTriggerTargets(t *testing.T) {
 	if err := valid.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	objectAction := valid
+	objectAction.RecordIDPath = ""
+	if err := objectAction.Validate(); err != nil {
+		t.Fatalf("object-level action mapping rejected: %v", err)
+	}
 	invalid := valid
 	invalid.ActionKey, invalid.ActionKeyPath = "", "target.action"
 	if err := invalid.Validate(); err == nil {

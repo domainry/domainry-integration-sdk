@@ -37,6 +37,7 @@ const (
 	ActionIntegrationConnectionAccountsList             = "integration.connection_accounts.list"
 	ActionIntegrationConnectionAccountsGet              = "integration.connection_accounts.get"
 	ActionIntegrationConnectionAccountsTest             = "integration.connection_accounts.test"
+	ActionIntegrationConnectionAccountsRetryBackground  = "integration.connection_accounts.retry_background"
 	ActionIntegrationConnectionAccountsRevoke           = "integration.connection_accounts.revoke"
 	ActionIntegrationSecretsList                        = "integration.secrets.list"
 	ActionIntegrationSecretsUpsert                      = "integration.secrets.upsert"
@@ -67,6 +68,7 @@ const (
 	ActionIntegrationEventsGet                          = "integration.events.get"
 	ActionIntegrationEventsReplay                       = "integration.events.replay"
 	ActionIntegrationWebhooksIngest                     = "integration.webhooks.ingest"
+	ActionIntegrationRoutedWebhooksIngest               = "integration.routed_webhooks.ingest"
 )
 
 type HTTPRouteContract struct {
@@ -153,6 +155,7 @@ func integrationHTTPRoutes() []HTTPRouteContract {
 		member(ActionIntegrationConnectionAccountsList, "GET /integration/connection-accounts", "listConnectionAccounts"),
 		member(ActionIntegrationConnectionAccountsGet, "GET /integration/connection-accounts/{connectionKey}", "getConnectionAccount"),
 		member(ActionIntegrationConnectionAccountsTest, "POST /integration/connection-accounts/{connectionKey}/test", "testConnectionAccount"),
+		member(ActionIntegrationConnectionAccountsRetryBackground, "POST /integration/connection-accounts/{connectionKey}/background/{taskKey}/retry", "retryConnectionAccountBackgroundTask"),
 		member(ActionIntegrationConnectionAccountsRevoke, "POST /integration/connection-accounts/{connectionKey}/revoke", "revokeConnectionAccount"),
 		member(ActionIntegrationConnectionAccountsReadAccess, "POST /integration/connection-accounts/{connectionKey}/read-access", "authorizeConnectionAccountRead"),
 		member(ActionIntegrationConnectionAccountsRead, "POST /integration/connection-accounts/{connectionKey}/read", "readConnectionAccount"),
@@ -191,6 +194,7 @@ func integrationHTTPRoutes() []HTTPRouteContract {
 		admin(ActionIntegrationEventsGet, "GET /integration/events/{eventID}", "getEvent"),
 		admin(ActionIntegrationEventsReplay, "POST /integration/events/{eventID}/replay", "replayEvent"),
 		signed(ActionIntegrationWebhooksIngest, "POST /integration/webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
+		signed(ActionIntegrationRoutedWebhooksIngest, "POST /integration/routed-webhooks/{workspaceID}/{connectorKey}/{connectionKey}"),
 	}
 }
 
@@ -200,7 +204,7 @@ func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []
 	if method == "GET" || method == "HEAD" || method == "OPTIONS" || key == ActionIntegrationConnectionAccountsReadAccess || key == ActionIntegrationConnectionAccountsRead {
 		effect, risk, idempotency, auditClass = actioncontract.EffectRead, actioncontract.RiskLow, "not_applicable", "integration_owner_read"
 	}
-	if strings.HasPrefix(path, "/integration/webhooks/") {
+	if strings.HasPrefix(path, "/integration/webhooks/") || strings.HasPrefix(path, "/integration/routed-webhooks/") {
 		risk, idempotency, auditClass = actioncontract.RiskHigh, "provider_event_identity", "integration_webhook_ingress"
 	}
 	separator := strings.LastIndex(key, ".")
@@ -233,7 +237,7 @@ func integrationHTTPCapability(key string) (string, string) {
 		return CapabilityIntegrationAccounts, "Current-user connection accounts"
 	case strings.HasPrefix(key, "integration.secrets."), strings.HasPrefix(key, "integration.api_keys."), strings.HasPrefix(key, "integration.external_identities."):
 		return CapabilityIntegrationCredentials, "Integration credentials"
-	case strings.HasPrefix(key, "integration.webhook_subscriptions."), strings.HasPrefix(key, "integration.web_push."), strings.HasPrefix(key, "integration.web_push_subscriptions."), strings.HasPrefix(key, "integration.webhooks."):
+	case strings.HasPrefix(key, "integration.webhook_subscriptions."), strings.HasPrefix(key, "integration.web_push."), strings.HasPrefix(key, "integration.web_push_subscriptions."), strings.HasPrefix(key, "integration.webhooks."), strings.HasPrefix(key, "integration.routed_webhooks."):
 		return CapabilityIntegrationSubscriptions, "Inbound and push subscriptions"
 	case strings.HasPrefix(key, "integration.invocations."), strings.HasPrefix(key, "integration.events."):
 		return CapabilityIntegrationOperations, "Invocation and event operations"

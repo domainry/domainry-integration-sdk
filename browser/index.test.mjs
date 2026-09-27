@@ -28,6 +28,7 @@ test('publishes one owner-client method for every browser Integration route', as
   await client.getConnectionAccount('account/1')
   await client.registerConnectionAccount('account/1', { scope: 'personal' })
   await client.testConnectionAccount('account/1')
+  await client.retryConnectionAccountBackgroundTask('account/1', 'gmail/sync', '2026-09-27T00:00:00Z')
   await client.revokeConnectionAccount('account/1', 'revision')
   await client.authorizeConnectionAccountRead('account/1', {operation: 'calendar_list', contract_sha256: 'a'.repeat(64)})
   await client.readConnectionAccount('account/1', {request_id: 'read-1', operation: 'calendar_list', contract_sha256: 'a'.repeat(64), payload: {limit: 2}})
@@ -84,6 +85,7 @@ test('publishes one owner-client method for every browser Integration route', as
     'GET /integration/connection-accounts/account%2F1',
     'POST /integration/connections/account%2F1/account',
     'POST /integration/connection-accounts/account%2F1/test',
+    'POST /integration/connection-accounts/account%2F1/background/gmail%2Fsync/retry',
     'POST /integration/connection-accounts/account%2F1/revoke',
     'POST /integration/connection-accounts/account%2F1/read-access',
     'POST /integration/connection-accounts/account%2F1/read',
@@ -122,7 +124,7 @@ test('publishes one owner-client method for every browser Integration route', as
     'GET /integration/events/event%2F1',
     'POST /integration/events/event%2F1/replay',
   ])
-  assert.equal(calls.length, 50)
+  assert.equal(calls.length, 51)
   assert.equal(calls.some((call) => call.path.startsWith('/operations/integrations')), false)
 })
 
@@ -149,6 +151,7 @@ test('account and OAuth commands keep fixed payloads and forward cancellation', 
   const client = new IntegrationClient({ request: async (path, options) => { calls.push({ path, options }); return {} } })
   const options = { method: 'DELETE', body: { owner_user_id: 'forged' }, signal: controller.signal }
   await client.testConnectionAccount('a', options)
+  await client.retryConnectionAccountBackgroundTask('a', 'sync', '2026-09-27T00:00:00Z', options)
   await client.revokeConnectionAccount('a', 'revision', options)
   await client.startOAuthAuthorization({ application_key: 'app', scope: 'personal' }, options)
   await client.completeOAuthAuthorization({ state: 'private', code: 'private' }, options)
@@ -158,5 +161,6 @@ test('account and OAuth commands keep fixed payloads and forward cancellation', 
     assert.equal(options.body.owner_user_id, undefined)
   }
   assert.deepEqual(calls[0].options.body, {})
-  assert.deepEqual(calls[1].options.body, { expected_updated_at: 'revision' })
+  assert.deepEqual(calls[1].options.body, { expected_updated_at: '2026-09-27T00:00:00Z' })
+  assert.deepEqual(calls[2].options.body, { expected_updated_at: 'revision' })
 })

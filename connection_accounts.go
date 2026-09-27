@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // ConnectionAccountScope describes who may use one Integration-owned external
@@ -49,17 +50,59 @@ func (s ConnectionAccountSubject) Validate() error {
 // deliberately excludes provider configuration, secret references, credential
 // fingerprints and creator evidence.
 type ConnectionAccount struct {
-	Key          string                      `json:"key"`
-	WorkspaceID  string                      `json:"workspace_id,omitempty"`
-	ConnectorKey string                      `json:"connector_key"`
-	ProviderKey  string                      `json:"provider_key"`
-	Name         string                      `json:"name,omitempty"`
-	Scope        ConnectionAccountScope      `json:"scope"`
-	OwnerUserID  string                      `json:"owner_user_id,omitempty"`
-	Status       string                      `json:"status"`
-	Readiness    *ConnectionAccountReadiness `json:"readiness,omitempty"`
-	CreatedAt    string                      `json:"created_at,omitempty"`
-	UpdatedAt    string                      `json:"updated_at,omitempty"`
+	Key          string                            `json:"key"`
+	WorkspaceID  string                            `json:"workspace_id,omitempty"`
+	ConnectorKey string                            `json:"connector_key"`
+	ProviderKey  string                            `json:"provider_key"`
+	Name         string                            `json:"name,omitempty"`
+	Scope        ConnectionAccountScope            `json:"scope"`
+	OwnerUserID  string                            `json:"owner_user_id,omitempty"`
+	Status       string                            `json:"status"`
+	HealthState  ConnectionAccountHealthState      `json:"health_state,omitempty"`
+	Readiness    *ConnectionAccountReadiness       `json:"readiness,omitempty"`
+	Background   []ConnectionAccountBackgroundTask `json:"background,omitempty"`
+	CreatedAt    string                            `json:"created_at,omitempty"`
+	UpdatedAt    string                            `json:"updated_at,omitempty"`
+}
+
+// ConnectionAccountBackgroundTask is an owner-supplied, secret-free snapshot of
+// a provider state run. "ready" means scheduled, not that a sync succeeded.
+type ConnectionAccountBackgroundTask struct {
+	TaskKey       string                       `json:"task_key"`
+	Status        string                       `json:"status"`
+	HealthState   ConnectionAccountHealthState `json:"health_state,omitempty"`
+	AttemptCount  int                          `json:"attempt_count"`
+	DueAt         string                       `json:"due_at,omitempty"`
+	LastSuccessAt string                       `json:"last_success_at,omitempty"`
+	LastErrorCode string                       `json:"last_error_code,omitempty"`
+	UpdatedAt     string                       `json:"updated_at,omitempty"`
+}
+
+// Health is a read-time interpretation of provider-run state, not a second
+// persisted queue or a claim that a scheduled run has completed successfully.
+type ConnectionAccountHealthState string
+
+const (
+	ConnectionAccountHealthHealthy       ConnectionAccountHealthState = "healthy"
+	ConnectionAccountHealthInitializing  ConnectionAccountHealthState = "initializing"
+	ConnectionAccountHealthDelayed       ConnectionAccountHealthState = "delayed"
+	ConnectionAccountHealthFailing       ConnectionAccountHealthState = "failing"
+	ConnectionAccountHealthInactive      ConnectionAccountHealthState = "inactive"
+	ConnectionAccountHealthNotApplicable ConnectionAccountHealthState = "not_applicable"
+	ConnectionAccountHealthUnknown       ConnectionAccountHealthState = "unknown"
+)
+
+// Retry is an optimistic, current-user request for one failed provider state
+// run. It schedules the existing run; it never creates a product-local job.
+type ConnectionAccountBackgroundRetryRequest struct {
+	ExpectedUpdatedAt string `json:"expected_updated_at"`
+}
+
+func (r ConnectionAccountBackgroundRetryRequest) Validate() error {
+	if _, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(r.ExpectedUpdatedAt)); err != nil {
+		return fmt.Errorf("Integration background task revision is required")
+	}
+	return nil
 }
 
 // ConnectionAccountReadiness reports current local configuration only. It does
@@ -116,6 +159,7 @@ type ConnectionAccounts interface {
 	ListConnectionAccounts(context.Context, ConnectionAccountSubject) ([]ConnectionAccount, error)
 	GetConnectionAccount(context.Context, ConnectionAccountSubject, string) (ConnectionAccount, error)
 	TestConnectionAccount(context.Context, ConnectionAccountSubject, string, ConnectionTestRequest) (ConnectionAccountTestResult, error)
+	RetryConnectionAccountBackgroundTask(context.Context, ConnectionAccountSubject, string, string, ConnectionAccountBackgroundRetryRequest) (ConnectionAccountBackgroundTask, error)
 	RevokeConnectionAccount(context.Context, ConnectionAccountSubject, string, string) (ConnectionAccount, error)
 }
 

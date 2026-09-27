@@ -87,6 +87,13 @@ export class IntegrationClient {
   getConnectionAccount(key: string, signal?: AbortSignal) {required(key, 'key'); return this.#dependencies.request<IntegrationConnectionAccount>(integrationResourcePath('connection-accounts', key), {signal})}
   registerConnectionAccount(key: string, body: {scope: 'personal' | 'workspace'; owner_user_id?: string}, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccount>('connections',key,'account','POST',body,options)}
   testConnectionAccount(key: string, options: IntegrationRequestOptions = {}) {return this.#command<{account: IntegrationConnectionAccount; operation: string; connected: boolean}>('connection-accounts',key,'test','POST',{},options)}
+  retryConnectionAccountBackgroundTask(key: string, taskKey: string, expectedUpdatedAt: string, options: IntegrationRequestOptions = {}) {
+    required(key, 'key'); required(taskKey, 'taskKey'); required(expectedUpdatedAt, 'expectedUpdatedAt')
+    return this.#dependencies.request<NonNullable<IntegrationConnectionAccount['background']>[number]>(
+      `${integrationResourcePath('connection-accounts', key)}/background/${encodeURIComponent(taskKey)}/retry`,
+      fixedOptions(options, 'POST', {expected_updated_at: expectedUpdatedAt}),
+    )
+  }
   revokeConnectionAccount(key: string, expectedUpdatedAt: string, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccount>('connection-accounts',key,'revoke','POST',{expected_updated_at: expectedUpdatedAt},options)}
   authorizeConnectionAccountRead(key: string, body: IntegrationConnectionAccountReadOperation, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccountReadAccess>('connection-accounts',key,'read-access','POST',body,options)}
   readConnectionAccount(key: string, body: IntegrationConnectionAccountReadRequest, options: IntegrationRequestOptions = {}) {return this.#command<IntegrationConnectionAccountReadResult>('connection-accounts',key,'read','POST',body,options)}
