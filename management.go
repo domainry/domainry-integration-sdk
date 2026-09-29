@@ -3,6 +3,7 @@ package integrationsdk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 )
 
 // Connection is Integration-owned connector configuration. Secret material is
@@ -87,6 +88,27 @@ type APIKeyInput struct {
 type APIKeyCredential struct {
 	APIKey APIKey `json:"api_key"`
 	Token  string `json:"token"`
+}
+
+var (
+	// ErrAPIKeyInvalid intentionally covers missing, disabled, expired, rotated
+	// and malformed credentials so callers cannot enumerate credential state.
+	ErrAPIKeyInvalid = errors.New("Integration API key is invalid")
+	// ErrAPIKeyAuthenticationUnavailable distinguishes owner/infrastructure
+	// failure from bad credentials without exposing the underlying diagnostic.
+	ErrAPIKeyAuthenticationUnavailable = errors.New("Integration API key authentication is unavailable")
+)
+
+// APIKeyAuthentication is the narrow host-only verification port for a
+// presented business API token. It returns the persisted actor, role and
+// scopes; the embedding Runtime still resolves the actor's current Identity
+// principal and intersects that current authorization with these scopes.
+type APIKeyAuthentication interface {
+	AuthenticateAPIKey(context.Context, string, string) (APIKey, error)
+}
+
+type APIKeyAuthenticationBinding interface {
+	APIKeyAuthentication() APIKeyAuthentication
 }
 
 type ExternalIdentity struct {

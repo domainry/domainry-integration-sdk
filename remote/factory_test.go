@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	requirementsSeen := false
 	webPushCalls := map[string]bool{}
 	accountCalls := map[string]bool{}
+	apiKeyAuthenticated := false
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("X-Domainry-Runtime-ID") != "runtime-a" || request.Header.Get("Authorization") != "Bearer secret" {
 			t.Fatalf("headers = %#v", request.Header)
@@ -21,12 +23,49 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/descriptor" {
 			_ = json.NewEncoder(response).Encode(integrationsdk.Descriptor{
 				ProtocolVersion: integrationsdk.ProtocolVersionV1, Mode: integrationsdk.DeploymentModeSaaS, Audience: "runtime-a",
-				Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "connection_accounts.manage", "connection_accounts.read", "connection_accounts.write", "oauth_applications.manage", "oauth_authorizations.manage", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query", "subjects.lifecycle"},
+				Capabilities: []string{"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage", "management.connections", "connection_accounts.manage", "connection_accounts.read", "connection_accounts.write", "oauth_applications.manage", "oauth_authorizations.manage", "management.secrets", "management.api_keys", "api_keys.authenticate", "management.external_identities", "management.webhook_subscriptions", "operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query", "subjects.lifecycle"},
 			})
 			return
 		}
 		if request.Method == http.MethodGet && request.URL.Path == "/integration/v1/operations/provider-run-snapshot" {
-			_ = json.NewEncoder(response).Encode(integrationsdk.ProviderRunSnapshot{ReadyDue: 12, ExpiredProcessing: 2})
+			_ = json.NewEncoder(response).Encode(integrationsdk.ProviderRunSnapshot{
+				ReadyDue: 12, ExpiredProcessing: 2,
+				GoogleHTTP429ForegroundEvents5m: 3, GoogleHTTP429ForegroundEventsHour: 9,
+				GoogleGmailProjectRateLimitFailures: 2, GoogleGmailProjectRateLimitEvents5m: 4, GoogleGmailProjectRateLimitEventsHour: 8,
+				GoogleGmailProjectRateLimitForegroundEvents5m: 5, GoogleGmailProjectRateLimitForegroundEventsHour: 10,
+				GoogleGmailUserRateLimitFailures: 1, GoogleGmailUserRateLimitEvents5m: 2, GoogleGmailUserRateLimitEventsHour: 3,
+				GoogleGmailUserRateLimitForegroundEvents5m: 1, GoogleGmailUserRateLimitForegroundEventsHour: 4,
+				FeishuRateLimitFailures: 2, FeishuRateLimitEvents5m: 3, FeishuRateLimitEventsHour: 7,
+				FeishuRateLimitForegroundEvents5m: 4, FeishuRateLimitForegroundEventsHour: 8,
+				GoogleSyncCompletedHour: 7, GoogleSyncTimedHour: 6, GoogleSyncDelayed5mHour: 2,
+				GoogleSyncMaxEndToEndDelayMsHour: 360000, GoogleSyncPending: 4, GoogleSyncPendingOver5m: 1, GoogleSyncOldestPendingAgeMs: 420000,
+				GoogleGmailHistoryMessagesWithoutPushHour: 5, GoogleGmailHistoryCursorExpiredHour: 1,
+			})
+			return
+		}
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/api-key-authentication" {
+			var input struct {
+				Token       string `json:"token"`
+				WorkspaceID string `json:"workspace_id"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&input); err != nil || input.WorkspaceID != "workspace-a" {
+				t.Fatalf("API key authentication=%#v err=%v", input, err)
+			}
+			if input.Token == "invalid" {
+				response.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(response).Encode(map[string]string{"code": "integration.api_key_invalid"})
+				return
+			}
+			if input.Token == "unavailable" {
+				response.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(response).Encode(map[string]string{"code": "integration.api_key_authentication_unavailable"})
+				return
+			}
+			if input.Token != "itg_private" {
+				t.Fatalf("unexpected API token %q", input.Token)
+			}
+			apiKeyAuthenticated = true
+			_ = json.NewEncoder(response).Encode(integrationsdk.APIKey{Key: "service", WorkspaceID: "workspace-a", ActorID: "service-a", RoleKey: "sales", Scopes: []string{"account.read"}, Status: "active"})
 			return
 		}
 		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/deliveries" {
@@ -145,8 +184,18 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 	if !ok {
 		t.Fatal("remote Management has no provider-run monitoring port")
 	}
-	if snapshot, err := monitor.ProviderRunSnapshot(context.Background()); err != nil || snapshot.ReadyDue != 12 || snapshot.ExpiredProcessing != 2 {
+	if snapshot, err := monitor.ProviderRunSnapshot(context.Background()); err != nil || snapshot.ReadyDue != 12 || snapshot.ExpiredProcessing != 2 || snapshot.GoogleHTTP429ForegroundEvents5m != 3 || snapshot.GoogleHTTP429ForegroundEventsHour != 9 || snapshot.GoogleGmailProjectRateLimitFailures != 2 || snapshot.GoogleGmailProjectRateLimitEvents5m != 4 || snapshot.GoogleGmailProjectRateLimitEventsHour != 8 || snapshot.GoogleGmailProjectRateLimitForegroundEvents5m != 5 || snapshot.GoogleGmailProjectRateLimitForegroundEventsHour != 10 || snapshot.GoogleGmailUserRateLimitFailures != 1 || snapshot.GoogleGmailUserRateLimitEvents5m != 2 || snapshot.GoogleGmailUserRateLimitEventsHour != 3 || snapshot.GoogleGmailUserRateLimitForegroundEvents5m != 1 || snapshot.GoogleGmailUserRateLimitForegroundEventsHour != 4 || snapshot.FeishuRateLimitFailures != 2 || snapshot.FeishuRateLimitEvents5m != 3 || snapshot.FeishuRateLimitEventsHour != 7 || snapshot.FeishuRateLimitForegroundEvents5m != 4 || snapshot.FeishuRateLimitForegroundEventsHour != 8 || snapshot.GoogleSyncCompletedHour != 7 || snapshot.GoogleSyncTimedHour != 6 || snapshot.GoogleSyncDelayed5mHour != 2 || snapshot.GoogleSyncMaxEndToEndDelayMsHour != 360000 || snapshot.GoogleSyncPending != 4 || snapshot.GoogleSyncPendingOver5m != 1 || snapshot.GoogleSyncOldestPendingAgeMs != 420000 || snapshot.GoogleGmailHistoryMessagesWithoutPushHour != 5 || snapshot.GoogleGmailHistoryCursorExpiredHour != 1 {
 		t.Fatalf("remote provider-run snapshot=%+v err=%v", snapshot, err)
+	}
+	apiKeys := binding.(integrationsdk.APIKeyAuthenticationBinding).APIKeyAuthentication()
+	if value, err := apiKeys.AuthenticateAPIKey(context.Background(), "itg_private", "workspace-a"); err != nil || value.ActorID != "service-a" || !apiKeyAuthenticated {
+		t.Fatalf("remote API key authentication=%#v called=%t err=%v", value, apiKeyAuthenticated, err)
+	}
+	if _, err := apiKeys.AuthenticateAPIKey(context.Background(), "invalid", "workspace-a"); !errors.Is(err, integrationsdk.ErrAPIKeyInvalid) {
+		t.Fatalf("invalid remote API key error=%v", err)
+	}
+	if _, err := apiKeys.AuthenticateAPIKey(context.Background(), "unavailable", "workspace-a"); !errors.Is(err, integrationsdk.ErrAPIKeyAuthenticationUnavailable) {
+		t.Fatalf("unavailable remote API key error=%v", err)
 	}
 	if err := binding.Requirements().SynchronizeConnections(context.Background(), []integrationsdk.ConnectionRequirement{{Key: "primary", WorkspaceID: "workspace-a", ConnectorKey: "crm", ProviderKey: "probe", Config: json.RawMessage(`{}`)}}); err != nil {
 		t.Fatal(err)

@@ -47,7 +47,7 @@ func (d Descriptor) Validate() error {
 		"delivery.accept": false, "delivery.query": false,
 		"web_push_subscriptions.manage": false,
 		"management.connections":        false, "management.secrets": false,
-		"management.api_keys": false, "management.external_identities": false,
+		"management.api_keys": false, "api_keys.authenticate": false, "management.external_identities": false,
 		"management.webhook_subscriptions": false,
 		"operations.call":                  false, "operations.invocations.query": false,
 		"inbound.webhooks.accept": false, "inbound.events.query": false,

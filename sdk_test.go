@@ -5,7 +5,7 @@ import "testing"
 func TestDescriptorRequiresDeploymentNeutralOwnerCapabilities(t *testing.T) {
 	valid := Descriptor{ProtocolVersion: ProtocolVersionV1, Mode: DeploymentModeModule, Capabilities: []string{
 		"catalog.read", "requirements.connections.sync", "delivery.accept", "delivery.query", "web_push_subscriptions.manage",
-		"management.connections", "management.secrets", "management.api_keys", "management.external_identities", "management.webhook_subscriptions",
+		"management.connections", "management.secrets", "management.api_keys", "api_keys.authenticate", "management.external_identities", "management.webhook_subscriptions",
 		"operations.call", "operations.invocations.query", "inbound.webhooks.accept", "inbound.events.query",
 	}}
 	if err := valid.Validate(); err != nil {
@@ -72,6 +72,27 @@ func TestEventMappingRequirementClosesRuntimeTriggerTargets(t *testing.T) {
 	invalid.ActionInput = map[string]string{"name": "undeclared.name"}
 	if err := invalid.Validate(); err == nil {
 		t.Fatal("undeclared event path accepted")
+	}
+}
+
+func TestAutomationEventMappingRequiresFiniteRuleAndDeclaredInput(t *testing.T) {
+	valid := EventMappingRequirement{
+		Key: "account-webhook", WorkspaceID: "workspace-a", Provider: "crm", EventType: "account.changed", TargetType: "automation",
+		AutomationRuleKey: "account.webhook", AutomationInput: map[string]string{"name": "account.name"},
+		EventFields: []EventFieldRequirement{{Path: "account.name", Type: "text"}}, Enabled: true,
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	invalid := valid
+	invalid.AutomationRuleKey = ""
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("Automation mapping without a finite rule accepted")
+	}
+	invalid = valid
+	invalid.AutomationInput = map[string]string{"name": "account.undeclared"}
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("Automation mapping with undeclared input accepted")
 	}
 }
 

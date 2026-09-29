@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -69,6 +70,7 @@ func (b *binding) Requirements() integrationsdk.Requirements                    
 func (b *binding) WebPushSubscriptions() integrationsdk.WebPushSubscriptions     { return b.client }
 func (b *binding) Delivery() integrationsdk.Delivery                             { return b.client }
 func (b *binding) Management() integrationsdk.Management                         { return b.client }
+func (b *binding) APIKeyAuthentication() integrationsdk.APIKeyAuthentication     { return b.client }
 func (b *binding) ConnectionAccounts() integrationsdk.ConnectionAccounts         { return b.client }
 func (b *binding) ConnectionAccountReads() integrationsdk.ConnectionAccountReads { return b.client }
 func (b *binding) ConnectionAccountAdministration() integrationsdk.ConnectionAccountAdministration {
@@ -323,6 +325,21 @@ func (c *remoteClient) ListAPIKeys(ctx context.Context, workspaceID string) ([]i
 	err := c.call(ctx, http.MethodGet, managementPath("api-keys", workspaceID), nil, &response)
 	return response.Items, err
 }
+func (c *remoteClient) AuthenticateAPIKey(ctx context.Context, token, workspaceID string) (integrationsdk.APIKey, error) {
+	var value integrationsdk.APIKey
+	err := c.call(ctx, http.MethodPost, "/integration/v1/api-key-authentication", struct {
+		Token       string `json:"token"`
+		WorkspaceID string `json:"workspace_id"`
+	}{Token: token, WorkspaceID: workspaceID}, &value)
+	if err != nil {
+		var responseErr *remoteResponseError
+		if errors.As(err, &responseErr) && responseErr.statusCode == http.StatusUnauthorized {
+			return integrationsdk.APIKey{}, fmt.Errorf("%w", integrationsdk.ErrAPIKeyInvalid)
+		}
+		return integrationsdk.APIKey{}, fmt.Errorf("%w: %v", integrationsdk.ErrAPIKeyAuthenticationUnavailable, err)
+	}
+	return value, err
+}
 func (c *remoteClient) CreateAPIKey(ctx context.Context, workspaceID, actorID string, input integrationsdk.APIKeyInput) (integrationsdk.APIKeyCredential, error) {
 	var value integrationsdk.APIKeyCredential
 	path := managementPath("api-keys", workspaceID) + "&actor_id=" + url.QueryEscape(strings.TrimSpace(actorID))
@@ -474,6 +491,16 @@ func (c *remoteClient) ReplayEvent(ctx context.Context, workspaceID, id string) 
 var _ integrationsdk.Operations = (*remoteClient)(nil)
 var _ integrationsdk.RoutedWebhooks = (*remoteClient)(nil)
 
+type remoteResponseError struct {
+	statusCode int
+	status     string
+	body       string
+}
+
+func (e *remoteResponseError) Error() string {
+	return "Integration SaaS returned " + e.status + ": " + e.body
+}
+
 func (c *remoteClient) call(ctx context.Context, method, path string, body any, target any) error {
 	reference, err := url.Parse(path)
 	if err != nil {
@@ -505,7 +532,7 @@ func (c *remoteClient) call(ctx context.Context, method, path string, body any, 
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		limited, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return fmt.Errorf("Integration SaaS returned %s: %s", response.Status, strings.TrimSpace(string(limited)))
+		return &remoteResponseError{statusCode: response.StatusCode, status: response.Status, body: strings.TrimSpace(string(limited))}
 	}
 	if target == nil {
 		return nil
@@ -522,7 +549,9 @@ var _ integrationsdk.Requirements = (*remoteClient)(nil)
 var _ integrationsdk.Delivery = (*remoteClient)(nil)
 var _ integrationsdk.WebPushSubscriptions = (*remoteClient)(nil)
 var _ integrationsdk.Management = (*remoteClient)(nil)
+var _ integrationsdk.APIKeyAuthentication = (*remoteClient)(nil)
 var _ integrationsdk.ManagementBinding = (*binding)(nil)
+var _ integrationsdk.APIKeyAuthenticationBinding = (*binding)(nil)
 var _ integrationsdk.ConnectionAccounts = (*remoteClient)(nil)
 var _ integrationsdk.ConnectionAccountAdministration = (*remoteClient)(nil)
 var _ integrationsdk.ConnectionAccountsBinding = (*binding)(nil)

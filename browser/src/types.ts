@@ -323,7 +323,7 @@ export interface IntegrationConnectionAccount {
  key: string; workspace_id?: string; connector_key: string; provider_key: string;
  name?: string; scope: 'personal' | 'workspace'; owner_user_id?: string;
  status: string; health_state?: 'healthy' | 'initializing' | 'delayed' | 'failing' | 'inactive' | 'not_applicable' | 'unknown'; created_at?: string; updated_at: string;
- readiness?: {available: boolean; state: string; granted_scopes?: string[]; test?: {allowed: boolean; state: string; scope_alternatives?: string[][]}};
+ readiness?: {available: boolean; state: string; granted_scopes?: string[]; credential_expires_at?: string; test?: {allowed: boolean; state: string; scope_alternatives?: string[][]}};
  background?: Array<{task_key: string; status: string; health_state?: 'healthy' | 'initializing' | 'delayed' | 'failing' | 'inactive' | 'not_applicable' | 'unknown'; attempt_count: number; due_at?: string; last_success_at?: string; last_error_code?: string; updated_at?: string}>;
 }
 

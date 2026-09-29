@@ -110,10 +110,11 @@ func (r ConnectionAccountBackgroundRetryRequest) Validate() error {
 // Missing readiness from an older owner must be treated as unknown/unavailable.
 // GrantedScopes come only from an actual OAuth grant, never requested scopes.
 type ConnectionAccountReadiness struct {
-	Available     bool                              `json:"available"`
-	State         string                            `json:"state"`
-	GrantedScopes []string                          `json:"granted_scopes,omitempty"`
-	Test          *ConnectionAccountTestEligibility `json:"test,omitempty"`
+	Available           bool                              `json:"available"`
+	State               string                            `json:"state"`
+	GrantedScopes       []string                          `json:"granted_scopes,omitempty"`
+	CredentialExpiresAt string                            `json:"credential_expires_at,omitempty"`
+	Test                *ConnectionAccountTestEligibility `json:"test,omitempty"`
 }
 
 // Probe eligibility is independent from business-tool eligibility. Missing

@@ -180,16 +180,17 @@ type RoutedWebhookReceipt struct {
 }
 
 type TriggerTarget struct {
-	Type           string         `json:"type"`
-	WorkflowKey    string         `json:"workflow_key,omitempty"`
-	ObjectKey      string         `json:"object_key,omitempty"`
-	RecordID       string         `json:"record_id,omitempty"`
-	ActionKey      string         `json:"action_key,omitempty"`
-	AgentID        string         `json:"agent_id,omitempty"`
-	ConversationID string         `json:"conversation_id,omitempty"`
-	AgentTaskMode  string         `json:"agent_task_mode,omitempty"`
-	RelatedTaskID  string         `json:"related_task_id,omitempty"`
-	Input          map[string]any `json:"input,omitempty"`
+	Type              string         `json:"type"`
+	WorkflowKey       string         `json:"workflow_key,omitempty"`
+	AutomationRuleKey string         `json:"automation_rule_key,omitempty"`
+	ObjectKey         string         `json:"object_key,omitempty"`
+	RecordID          string         `json:"record_id,omitempty"`
+	ActionKey         string         `json:"action_key,omitempty"`
+	AgentID           string         `json:"agent_id,omitempty"`
+	ConversationID    string         `json:"conversation_id,omitempty"`
+	AgentTaskMode     string         `json:"agent_task_mode,omitempty"`
+	RelatedTaskID     string         `json:"related_task_id,omitempty"`
+	Input             map[string]any `json:"input,omitempty"`
 }
 
 type TriggerPrincipal struct {
@@ -235,8 +236,9 @@ type RuntimeExecutionReceipt struct {
 }
 
 // TriggerSink is implemented by Runtime. Integration owns verification,
-// event durability and mapping; Runtime routes Action, Workflow and finite
-// Agent task targets and returns an idempotent receipt for that local execution.
+// event durability and mapping; Runtime routes finite Action, Workflow,
+// Automation and Agent task targets and returns an idempotent receipt for that
+// local execution.
 type TriggerSink interface {
 	Trigger(context.Context, TriggerRequest) (RuntimeExecutionReceipt, error)
 }
@@ -250,6 +252,7 @@ type EventMappingRequirement struct {
 	CommandPrefix     string                             `json:"command_prefix,omitempty"`
 	TargetType        string                             `json:"target_type"`
 	WorkflowKey       string                             `json:"workflow_key,omitempty"`
+	AutomationRuleKey string                             `json:"automation_rule_key,omitempty"`
 	ObjectKey         string                             `json:"object_key,omitempty"`
 	ObjectKeyPath     string                             `json:"object_key_path,omitempty"`
 	RecordID          string                             `json:"record_id,omitempty"`
@@ -258,6 +261,7 @@ type EventMappingRequirement struct {
 	ActionKeyPath     string                             `json:"action_key_path,omitempty"`
 	ActionInput       map[string]string                  `json:"action_input,omitempty"`
 	WorkflowInput     map[string]string                  `json:"workflow_input,omitempty"`
+	AutomationInput   map[string]string                  `json:"automation_input,omitempty"`
 	AgentID           string                             `json:"agent_id,omitempty"`
 	ConversationID    string                             `json:"conversation_id,omitempty"`
 	AgentTaskMode     string                             `json:"agent_task_mode,omitempty"`
@@ -302,6 +306,10 @@ func (r EventMappingRequirement) Validate() error {
 	case "workflow":
 		if strings.TrimSpace(r.WorkflowKey) == "" {
 			return fmt.Errorf("Integration workflow event mapping requires workflow_key")
+		}
+	case "automation":
+		if strings.TrimSpace(r.AutomationRuleKey) == "" {
+			return fmt.Errorf("Integration automation event mapping requires automation_rule_key")
 		}
 	case "agent_task":
 		if strings.TrimSpace(r.AgentID) == "" || strings.TrimSpace(r.ConversationID) == "" {
@@ -356,6 +364,11 @@ func (r EventMappingRequirement) Validate() error {
 	}
 	for key, path := range r.WorkflowInput {
 		if err := requireDeclared("workflow_input."+key, path); err != nil {
+			return err
+		}
+	}
+	for key, path := range r.AutomationInput {
+		if err := requireDeclared("automation_input."+key, path); err != nil {
 			return err
 		}
 	}
