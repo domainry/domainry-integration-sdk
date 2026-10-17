@@ -68,14 +68,25 @@ type ConnectionAccount struct {
 // ConnectionAccountBackgroundTask is an owner-supplied, secret-free snapshot of
 // a provider state run. "ready" means scheduled, not that a sync succeeded.
 type ConnectionAccountBackgroundTask struct {
-	TaskKey       string                       `json:"task_key"`
-	Status        string                       `json:"status"`
-	HealthState   ConnectionAccountHealthState `json:"health_state,omitempty"`
-	AttemptCount  int                          `json:"attempt_count"`
-	DueAt         string                       `json:"due_at,omitempty"`
-	LastSuccessAt string                       `json:"last_success_at,omitempty"`
-	LastErrorCode string                       `json:"last_error_code,omitempty"`
-	UpdatedAt     string                       `json:"updated_at,omitempty"`
+	TaskKey       string                               `json:"task_key"`
+	Status        string                               `json:"status"`
+	HealthState   ConnectionAccountHealthState         `json:"health_state,omitempty"`
+	Progress      *ConnectionAccountBackgroundProgress `json:"progress,omitempty"`
+	AttemptCount  int                                  `json:"attempt_count"`
+	DueAt         string                               `json:"due_at,omitempty"`
+	LastSuccessAt string                               `json:"last_success_at,omitempty"`
+	LastErrorCode string                               `json:"last_error_code,omitempty"`
+	UpdatedAt     string                               `json:"updated_at,omitempty"`
+}
+
+// ConnectionAccountBackgroundProgress is the sanitized task progress persisted
+// by Integration. It never contains opaque Provider state or credentials.
+type ConnectionAccountBackgroundProgress struct {
+	Phase                  string `json:"phase"`
+	Unit                   string `json:"unit,omitempty"`
+	CompletedUnits         int64  `json:"completed_units"`
+	TotalUnits             *int64 `json:"total_units,omitempty"`
+	InitializationComplete bool   `json:"initialization_complete"`
 }
 
 // Health is a read-time interpretation of provider-run state, not a second
@@ -112,6 +123,7 @@ func (r ConnectionAccountBackgroundRetryRequest) Validate() error {
 type ConnectionAccountReadiness struct {
 	Available           bool                              `json:"available"`
 	State               string                            `json:"state"`
+	AvailableOperations []string                          `json:"available_operations,omitempty"`
 	GrantedScopes       []string                          `json:"granted_scopes,omitempty"`
 	CredentialExpiresAt string                            `json:"credential_expires_at,omitempty"`
 	Test                *ConnectionAccountTestEligibility `json:"test,omitempty"`

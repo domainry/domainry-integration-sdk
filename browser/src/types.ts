@@ -323,8 +323,8 @@ export interface IntegrationConnectionAccount {
  key: string; workspace_id?: string; connector_key: string; provider_key: string;
  name?: string; scope: 'personal' | 'workspace'; owner_user_id?: string;
  status: string; health_state?: 'healthy' | 'initializing' | 'delayed' | 'failing' | 'inactive' | 'not_applicable' | 'unknown'; created_at?: string; updated_at: string;
- readiness?: {available: boolean; state: string; granted_scopes?: string[]; credential_expires_at?: string; test?: {allowed: boolean; state: string; scope_alternatives?: string[][]}};
- background?: Array<{task_key: string; status: string; health_state?: 'healthy' | 'initializing' | 'delayed' | 'failing' | 'inactive' | 'not_applicable' | 'unknown'; attempt_count: number; due_at?: string; last_success_at?: string; last_error_code?: string; updated_at?: string}>;
+ readiness?: {available: boolean; state: string; available_operations?: string[]; granted_scopes?: string[]; credential_expires_at?: string; test?: {allowed: boolean; state: string; scope_alternatives?: string[][]}};
+ background?: Array<{task_key: string; status: string; health_state?: 'healthy' | 'initializing' | 'delayed' | 'failing' | 'inactive' | 'not_applicable' | 'unknown'; progress?: {phase: string; unit?: string; completed_units: number; total_units?: number; initialization_complete: boolean}; attempt_count: number; due_at?: string; last_success_at?: string; last_error_code?: string; updated_at?: string}>;
 }
 
 export interface IntegrationConnectionAccountReadOperation { operation: string; contract_sha256: string }
@@ -344,6 +344,7 @@ export interface IntegrationOAuthAuthorizationOption {key: string; connector_key
 export interface IntegrationOAuthAuthorizationInput {application_key: string; name: string; scope: 'personal' | 'workspace'; scopes: string[]}
 export interface IntegrationOAuthAuthorizationSession {
  id: string; status: 'pending' | 'exchanging' | 'connected' | 'rejected' | 'expired' | 'needs_reauthorization';
+ failure_code?: string;
  application_key: string; scope: 'personal' | 'workspace'; requested_scopes: string[];
  granted_scopes?: string[]; account?: IntegrationConnectionAccount; expires_at: string; authorization_url?: string;
 }

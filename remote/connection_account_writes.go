@@ -47,7 +47,9 @@ func (c *remoteClient) accountWriteResult(ctx context.Context, subject sdk.Conne
 
 // One bounded POST, no redirects, cookies or automatic application retries.
 // Any transport/response error may follow a completed write; the only recovery
-// is ReadConnectionAccountWriteReceipt with the same host-frozen request.
+// is ReadConnectionAccountWriteReceipt with the same host-frozen request. That
+// recovery may perform the Provider's read-only reconciliation lookup but never
+// replays the write operation.
 func (c *remoteClient) accountWriteCall(ctx context.Context, subject sdk.ConnectionAccountSubject, key, action string, input, out any) error {
 	if err := subject.Validate(); err != nil {
 		return err

@@ -58,9 +58,11 @@ and a validated calendar/mail receipt. Changed input under the same actor and
 request ID conflicts. Invocation IDs are independent of caller payload.
 
 After a timeout/disconnect, use `ReadConnectionAccountWriteReceipt` with the
-original request. This reads owner evidence without vendor I/O. `uncertain`
-includes in-flight and crash-interrupted writes; neither it nor `failed` permits
-automatic re-execution. A success receipt acknowledges the provider effect;
+original request. This reads owner evidence and, only while the exact request is
+uncertain, may use the Provider's declared read-only reconciliation lookup.
+It never invokes the mutation again, and `not_found` is not permission to replay.
+`uncertain` includes in-flight and crash-interrupted writes; neither it nor
+`failed` permits automatic re-execution. A success receipt acknowledges the provider effect;
 mail acceptance and calendar notification requests do not prove delivery.
 Hosts must recheck their current Identity/tool permission before executing or
 showing receipts. Integration separately checks current account ownership,
