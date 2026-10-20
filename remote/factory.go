@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	actioncontract "github.com/domainry/domainry-foundation/action"
+	"github.com/domainry/domainry-foundation/telemetry"
 	integrationsdk "github.com/domainry/domainry-integration-sdk"
 	"github.com/domainry/domainry-integration-sdk/saashost"
 )
@@ -42,7 +43,7 @@ func (f *Factory) OpenSaaS(ctx context.Context, application integrationsdk.Appli
 	if client == nil {
 		client = http.DefaultClient
 	}
-	transport := &remoteClient{base: base, token: strings.TrimSpace(f.options.Token), runtimeID: application.RuntimeID, client: client}
+	transport := &remoteClient{base: base, token: strings.TrimSpace(f.options.Token), runtimeID: application.RuntimeID, client: telemetry.InstrumentHTTPClient(client, "github.com/domainry/domainry-integration-sdk/remote")}
 	var descriptor integrationsdk.Descriptor
 	if err := transport.call(ctx, http.MethodGet, "/integration/v1/descriptor", nil, &descriptor); err != nil {
 		return nil, fmt.Errorf("discover Integration SaaS descriptor: %w", err)
@@ -494,11 +495,10 @@ var _ integrationsdk.RoutedWebhooks = (*remoteClient)(nil)
 type remoteResponseError struct {
 	statusCode int
 	status     string
-	body       string
 }
 
 func (e *remoteResponseError) Error() string {
-	return "Integration SaaS returned " + e.status + ": " + e.body
+	return "Integration SaaS returned " + e.status
 }
 
 func (c *remoteClient) call(ctx context.Context, method, path string, body any, target any) error {
@@ -515,6 +515,7 @@ func (c *remoteClient) call(ctx context.Context, method, path string, body any, 
 		}
 		reader = bytes.NewReader(payload)
 	}
+	ctx = telemetry.WithHTTPClientOperation(ctx, "integration.remote")
 	request, err := http.NewRequestWithContext(ctx, method, endpoint.String(), reader)
 	if err != nil {
 		return err
@@ -531,8 +532,8 @@ func (c *remoteClient) call(ctx context.Context, method, path string, body any, 
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		limited, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return &remoteResponseError{statusCode: response.StatusCode, status: response.Status, body: strings.TrimSpace(string(limited))}
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
+		return &remoteResponseError{statusCode: response.StatusCode, status: response.Status}
 	}
 	if target == nil {
 		return nil

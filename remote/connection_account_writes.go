@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/domainry/domainry-foundation/telemetry"
 	sdk "github.com/domainry/domainry-integration-sdk"
 )
 
@@ -65,6 +66,7 @@ func (c *remoteClient) accountWriteCall(ctx context.Context, subject sdk.Connect
 	if err != nil || len(payload) > 2<<20 {
 		return fmt.Errorf("Integration account write request is invalid")
 	}
+	ctx = telemetry.WithHTTPClientOperation(ctx, "integration.connection_account_write")
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base.ResolveReference(reference).String(), bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("Integration account write request is invalid")
