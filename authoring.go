@@ -424,7 +424,7 @@ func integrationEventReplayCapability() AuthoringCapability {
 	return AuthoringCapability{
 		Key: "integration.event.replay", Status: "supported", Lifecycle: "audited_event_replay", Requires: []string{"integration.event.list"}, Permissions: []string{ActionIntegrationEventsReplay}, AuditEvents: []string{"integration_event_replayed"}, Parameters: parameters,
 		ConfigurationRoutes: []string{"POST /integration/events/{eventID}/replay"}, ResourceKeyPathParameter: "eventID", InputSchema: parameterObjectSchema(parameters), OutputSchema: integrationEventOutputSchema(),
-		OutputVariables: []AuthoringOutput{{Name: "event_id", JSONPointer: "/id", Type: "integration_event_id", VisibleTo: "subsequent_capability_calls"}, {Name: "status", JSONPointer: "/status", Type: "string", VisibleTo: "subsequent_capability_calls"}},
+		OutputVariables: []AuthoringOutput{{Name: "event_id", JSONPointer: "/event_id", Type: "integration_event_id", VisibleTo: "subsequent_capability_calls"}, {Name: "status", JSONPointer: "/status", Type: "string", VisibleTo: "subsequent_capability_calls"}},
 		Execution:       &AuthoringExecution{ReadSet: []string{"integration.event", "integration.event_mapping"}, WriteSet: []string{"integration.event"}, BoundaryClass: "integration_owner", Transaction: "integration_event_transaction", Idempotency: "event_id_and_current_state", SideEffects: []string{"integration_event_replayed"}, SideEffectLevel: "internal", PermissionModel: exactActionSameKeyPermissionModel},
 		Errors:          []AuthoringError{authoringError("backend.integration.event_not_found", "event_id"), authoringError("backend.integration.event_replay_failed", "event_id")},
 		Examples:        commandExamples("event_id", "evt_1001", "backend.integration.event_not_found"), Sources: authoringSources("IntegrationAuthoringDomain", "github.com/domainry/domainry-integration-sdk/operations.go", "Operations.ReplayEvent"),
@@ -501,15 +501,15 @@ func integrationConnectionOutputItemSchema() AuthoringSchema {
 
 func integrationInvocationSchema() AuthoringSchema {
 	closed, open := false, true
-	return AuthoringSchema{Type: "object", AdditionalProperties: &closed, Required: []string{"id", "connector_key", "operation", "status"}, Properties: map[string]AuthoringSchema{
-		"id": {Type: "string"}, "workspace_id": {Type: "string"}, "connector_key": {Type: "string"}, "provider_key": {Type: "string"}, "connection_key": {Type: "string"}, "operation": {Type: "string"}, "status": {Type: "string", Enum: stringEnums(integrationInvocationStatuses)}, "duration_ms": {Type: "integer"}, "request_ref": {Type: "string"}, "response_ref": {Type: "string"}, "error": {Type: "string"}, "metadata": {Type: "object", AdditionalProperties: &open}, "created_at": {Type: "string", Format: "date-time"}, "updated_at": {Type: "string", Format: "date-time"},
+	return AuthoringSchema{Type: "object", AdditionalProperties: &closed, Required: []string{"invocation_id", "connector_key", "operation", "status"}, Properties: map[string]AuthoringSchema{
+		"invocation_id": {Type: "string"}, "workspace_id": {Type: "string"}, "connector_key": {Type: "string"}, "provider_key": {Type: "string"}, "connection_key": {Type: "string"}, "operation": {Type: "string"}, "status": {Type: "string", Enum: stringEnums(integrationInvocationStatuses)}, "duration_ms": {Type: "integer"}, "request_ref": {Type: "string"}, "response_ref": {Type: "string"}, "error": {Type: "string"}, "event_id": {Type: "string"}, "object_key": {Type: "string"}, "record_id": {Type: "string"}, "workflow_execution_id": {Type: "string"}, "metadata": {Type: "object", AdditionalProperties: &open}, "created_at": {Type: "string", Format: "date-time"}, "updated_at": {Type: "string", Format: "date-time"},
 	}}
 }
 
 func integrationEventSchema() AuthoringSchema {
 	closed, open := false, true
-	return AuthoringSchema{Type: "object", AdditionalProperties: &closed, Required: []string{"id", "provider", "event_type", "external_id", "status", "attempt_count"}, Properties: map[string]AuthoringSchema{
-		"id": {Type: "string"}, "workspace_id": {Type: "string"}, "connector_key": {Type: "string"}, "connection_key": {Type: "string"}, "provider": {Type: "string"}, "event_type": {Type: "string"}, "external_id": {Type: "string"}, "status": {Type: "string", Enum: stringEnums(integrationEventStatuses)}, "payload": {Type: "object", AdditionalProperties: &open}, "error": {Type: "string"}, "attempt_count": {Type: "integer"}, "next_retry_at": {Type: "string", Format: "date-time"}, "last_attempt_at": {Type: "string", Format: "date-time"}, "received_at": {Type: "string", Format: "date-time"}, "updated_at": {Type: "string", Format: "date-time"},
+	return AuthoringSchema{Type: "object", AdditionalProperties: &closed, Required: []string{"event_id", "provider", "event_type", "external_id", "status", "attempt_count"}, Properties: map[string]AuthoringSchema{
+		"event_id": {Type: "string"}, "workspace_id": {Type: "string"}, "connector_key": {Type: "string"}, "connection_key": {Type: "string"}, "provider": {Type: "string"}, "event_type": {Type: "string"}, "external_id": {Type: "string"}, "status": {Type: "string", Enum: stringEnums(integrationEventStatuses)}, "payload": {Type: "object", AdditionalProperties: &open}, "error": {Type: "string"}, "attempt_count": {Type: "integer"}, "next_retry_at": {Type: "string", Format: "date-time"}, "last_attempt_at": {Type: "string", Format: "date-time"}, "received_at": {Type: "string", Format: "date-time"}, "updated_at": {Type: "string", Format: "date-time"}, "execution": {Type: "object", AdditionalProperties: &open},
 	}}
 }
 

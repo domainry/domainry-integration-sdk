@@ -52,7 +52,7 @@ type OAuthAuthorizationInput struct {
 	Scopes         []string               `json:"scopes"`
 }
 type OAuthAuthorizationSession struct {
-	ID              string                 `json:"id"`
+	SessionID       string                 `json:"session_id"`
 	Status          string                 `json:"status"`
 	FailureCode     string                 `json:"failure_code,omitempty"`
 	ApplicationKey  string                 `json:"application_key"`

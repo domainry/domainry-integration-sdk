@@ -100,7 +100,7 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 				t.Fatalf("list query=%s", request.URL.RawQuery)
 			}
 			webPushCalls["list"] = true
-			_ = json.NewEncoder(response).Encode(map[string]any{"items": []integrationsdk.WebPushSubscription{{ID: "browser-a", UserID: "user-a", Status: "active"}}})
+			_ = json.NewEncoder(response).Encode(map[string]any{"items": []integrationsdk.WebPushSubscription{{SubscriptionID: "pushsub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UserID: "user-a", Status: "active"}}})
 			return
 		}
 		if request.Method == http.MethodPut && request.URL.Path == "/integration/v1/web-push-subscriptions/browser-a" {
@@ -109,12 +109,12 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 				t.Fatalf("upsert input=%#v err=%v", input, err)
 			}
 			webPushCalls["upsert"] = true
-			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushSubscription{ID: "browser-a", UserID: "user-a", Status: "active"})
+			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushSubscription{SubscriptionID: "pushsub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UserID: "user-a", Status: "active"})
 			return
 		}
-		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/web-push-subscriptions/browser-a/revoke" {
+		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/web-push-subscriptions/pushsub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/revoke" {
 			webPushCalls["revoke"] = true
-			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushSubscription{ID: "browser-a", UserID: "user-a", Status: "revoked"})
+			_ = json.NewEncoder(response).Encode(integrationsdk.WebPushSubscription{SubscriptionID: "pushsub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UserID: "user-a", Status: "revoked"})
 			return
 		}
 		if request.Method == http.MethodPost && request.URL.Path == "/integration/v1/web-push-subscriptions/cleanup-expired" {
@@ -217,13 +217,13 @@ func TestRemoteBindingUsesStableRuntimeAndDeliveryIdentity(t *testing.T) {
 		t.Fatalf("readiness=%#v err=%v", readiness, err)
 	}
 	items, err := webPush.List(context.Background(), "workspace-a", "user-a")
-	if err != nil || len(items) != 1 || items[0].ID != "browser-a" {
+	if err != nil || len(items) != 1 || items[0].SubscriptionID != "pushsub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("items=%#v err=%v", items, err)
 	}
 	if _, err := webPush.Upsert(context.Background(), "workspace-a", "user-a", "browser-a", integrationsdk.WebPushSubscriptionInput{Endpoint: "https://push.example/a", P256DH: "key", Auth: "auth"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := webPush.Revoke(context.Background(), "workspace-a", "user-a", "browser-a"); err != nil {
+	if _, err := webPush.Revoke(context.Background(), "workspace-a", "user-a", "pushsub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err != nil {
 		t.Fatal(err)
 	}
 	if cleaned, err := webPush.CleanupExpired(context.Background(), "workspace-a"); err != nil || cleaned != 2 {

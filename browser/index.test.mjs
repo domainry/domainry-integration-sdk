@@ -3,6 +3,28 @@ import test from 'node:test'
 
 import { IntegrationClient } from './dist/index.js'
 
+test('retains explicit owner business IDs without inventing an id alias', async () => {
+  const resources = {
+    '/integration/invocations/invocation-business': { invocation_id: 'invocation-business', status: 'succeeded' },
+    '/integration/events/event-business': { event_id: 'event-business', status: 'received' },
+    '/integration/oauth-authorizations/session-business': { session_id: 'session-business', status: 'pending' },
+    '/integration/web-push/subscriptions/subscription-business': { subscription_id: 'subscription-business', status: 'active' },
+  }
+  const client = new IntegrationClient({ request: async (path) => {
+    assert.ok(resources[path], `unexpected path ${path}`)
+    return resources[path]
+  } })
+  const invocation = await client.getInvocation('invocation-business')
+  const event = await client.getEvent('event-business')
+  const session = await client.getOAuthAuthorization('session-business')
+  const subscription = await client.upsertWebPushSubscription('subscription-business', { endpoint: 'https://push.example/sub', p256dh: 'key', auth: 'auth' }, { idempotencyKey: 'test' })
+  assert.equal(invocation.invocation_id, 'invocation-business')
+  assert.equal(event.event_id, 'event-business')
+  assert.equal(session.session_id, 'session-business')
+  assert.equal(subscription.subscription_id, 'subscription-business')
+  for (const value of [invocation, event, session, subscription]) assert.equal(Object.hasOwn(value, 'id'), false)
+})
+
 test('publishes one owner-client method for every browser Integration route', async () => {
   const calls = []
   const client = new IntegrationClient({

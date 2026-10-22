@@ -245,7 +245,7 @@ export interface IntegrationConnectorOperationTestResult {
   response: Record<string, unknown>
   receipt?: IntegrationDeliveryReceipt
   invocation?: {
-    id: string
+    invocation_id: string
     status: string
     request_ref?: string
     response_ref?: string
@@ -261,7 +261,7 @@ export interface IntegrationConnectionTestRequest {
 }
 
 export interface IntegrationWebPushSubscription {
-  id: string
+  subscription_id: string
   user_id: string
   endpoint_hash: string
   status: string
@@ -287,7 +287,7 @@ export interface IntegrationWebPushReadiness {
 }
 
 export interface IntegrationInvocation {
-  id: string
+  invocation_id: string
   connector_key: string
   provider_key?: string
   connection_key?: string
@@ -303,7 +303,7 @@ export interface IntegrationInvocation {
 }
 
 export interface IntegrationEvent {
-  id: string
+  event_id: string
   connector_key?: string
   connection_key?: string
   provider: string
@@ -343,7 +343,7 @@ export type IntegrationOAuthApplicationInput = Omit<IntegrationOAuthApplication,
 export interface IntegrationOAuthAuthorizationOption {key: string; connector_key: string; provider_key: string; name: string; scopes: string[]}
 export interface IntegrationOAuthAuthorizationInput {application_key: string; name: string; scope: 'personal' | 'workspace'; scopes: string[]}
 export interface IntegrationOAuthAuthorizationSession {
- id: string; status: 'pending' | 'exchanging' | 'connected' | 'rejected' | 'expired' | 'needs_reauthorization';
+ session_id: string; status: 'pending' | 'exchanging' | 'connected' | 'rejected' | 'expired' | 'needs_reauthorization';
  failure_code?: string;
  application_key: string; scope: 'personal' | 'workspace'; requested_scopes: string[];
  granted_scopes?: string[]; account?: IntegrationConnectionAccount; expires_at: string; authorization_url?: string;
