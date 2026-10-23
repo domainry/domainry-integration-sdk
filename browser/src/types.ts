@@ -2,7 +2,6 @@ export interface IntegrationRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   headers?: Record<string, string>
-  requestId?: string
   signal?: AbortSignal
 }
 

@@ -235,7 +235,7 @@ export class IntegrationClient {
   upsertWebPushSubscription(
     subscriptionID: string,
     request: IntegrationWebPushSubscriptionUpsertRequest,
-    options: { idempotencyKey: string; requestId?: string },
+    options: { idempotencyKey: string },
   ) {
     required(subscriptionID, 'subscriptionID')
     required(options.idempotencyKey, 'Idempotency-Key')
@@ -243,7 +243,6 @@ export class IntegrationClient {
       `/integration/web-push/subscriptions/${encodeURIComponent(subscriptionID)}`,
       {
         method: 'PUT',
-        requestId: options.requestId,
         headers: { 'Idempotency-Key': options.idempotencyKey },
         body: request,
       },
@@ -252,7 +251,7 @@ export class IntegrationClient {
 
   revokeWebPushSubscription(
     subscriptionID: string,
-    options: { idempotencyKey: string; requestId?: string },
+    options: { idempotencyKey: string },
   ) {
     required(subscriptionID, 'subscriptionID')
     required(options.idempotencyKey, 'Idempotency-Key')
@@ -260,7 +259,6 @@ export class IntegrationClient {
       `/integration/web-push/subscriptions/${encodeURIComponent(subscriptionID)}/revoke`,
       {
         method: 'POST',
-        requestId: options.requestId,
         headers: { 'Idempotency-Key': options.idempotencyKey },
       },
     )

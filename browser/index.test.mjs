@@ -148,6 +148,7 @@ test('publishes one owner-client method for every browser Integration route', as
   ])
   assert.equal(calls.length, 51)
   assert.equal(calls.some((call) => call.path.startsWith('/operations/integrations')), false)
+	assert.equal(calls.some((call) => Object.hasOwn(call.options ?? {}, 'requestId')), false)
 })
 
 test('keeps response metadata behind the Integration client boundary', async () => {
