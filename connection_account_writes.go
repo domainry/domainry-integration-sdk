@@ -17,7 +17,13 @@ const ActionIntegrationConnectionAccountsWrite = "integration.connection_account
 // ConnectionAccountWritePermission declares the host-only account authority.
 // Publishing/granting it belongs to Identity's owner; it creates no HTTP route.
 func ConnectionAccountWritePermission() actioncontract.PermissionDefinition {
-	return actioncontract.PermissionDefinition{Key: ActionIntegrationConnectionAccountsWrite, Owner: "module:integration", ResourceKey: "integration.connection_accounts", OperationKey: "write", Label: "执行获准的账号写入", Category: "Integration", LifecycleStatus: actioncontract.LifecycleActive}
+	localized := integrationPermissionText(CapabilityIntegrationAccounts, "integration.connection_accounts", "write")
+	return actioncontract.PermissionDefinition{
+		Key: ActionIntegrationConnectionAccountsWrite, Owner: "module:integration", ModuleKey: "integration", GroupKey: CapabilityIntegrationAccounts,
+		ResourceKey: "integration.connection_accounts", OperationKey: "write", Label: localized["en"].Label, Category: "Integration",
+		GrantMode: actioncontract.PermissionGrantInternal, ScopeKind: actioncontract.PermissionScopeNone,
+		DefaultLocale: "en", I18n: localized, LifecycleStatus: actioncontract.LifecycleActive,
+	}
 }
 
 type ConnectionAccountWriteOperation struct {

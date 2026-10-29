@@ -221,13 +221,70 @@ func integrationHTTPRoute(key, pattern, browserClientMethod string, exposures []
 		Authorization: actioncontract.Authorization{Strategy: strategy},
 	}
 	if requirePermission {
-		definition.Permission = &actioncontract.PermissionDefinition{Key: key, Owner: definition.Owner, ResourceKey: key[:separator], OperationKey: key[separator+1:], Label: label, Category: "Integration", LifecycleStatus: actioncontract.LifecycleActive}
+		resourceKey, operationKey := key[:separator], key[separator+1:]
+		localized := integrationPermissionText(capabilityKey, resourceKey, operationKey)
+		definition.OperationLabel, definition.Label = localized["en"].OperationLabel, localized["en"].Label
+		definition.Permission = &actioncontract.PermissionDefinition{
+			Key: key, Owner: definition.Owner, ModuleKey: "integration", GroupKey: capabilityKey,
+			ResourceKey: resourceKey, OperationKey: operationKey, Label: localized["en"].Label, Category: "Integration",
+			GrantMode: actioncontract.PermissionGrantInternal, ScopeKind: actioncontract.PermissionScopeNone,
+			DefaultLocale: "en", I18n: localized, LifecycleStatus: actioncontract.LifecycleActive,
+		}
 	}
 	if strategy == actioncontract.AuthorizationSigned {
 		definition.Authorization = actioncontract.Authorization{Strategy: actioncontract.AuthorizationSigned, PolicyKey: "integration.webhook.signature"}
 	}
 	return HTTPRouteContract{
 		Action: definition, BrowserClientPackage: integrationBrowserClientPackage(browserClientMethod), BrowserClientMethod: browserClientMethod,
+	}
+}
+
+func integrationPermissionText(capabilityKey, resourceKey, operationKey string) actioncontract.PermissionLocalizedText {
+	groupEnglish := map[string]string{
+		CapabilityIntegrationConnections: "Connector connections", CapabilityIntegrationAccounts: "Personal connection accounts",
+		CapabilityIntegrationCredentials: "Credentials and identities", CapabilityIntegrationOperations: "Invocations and events",
+		CapabilityIntegrationSubscriptions: "Webhook subscriptions",
+	}[capabilityKey]
+	groupChinese := map[string]string{
+		CapabilityIntegrationConnections: "连接器与连接", CapabilityIntegrationAccounts: "个人连接账号",
+		CapabilityIntegrationCredentials: "凭据与外部身份", CapabilityIntegrationOperations: "调用与事件",
+		CapabilityIntegrationSubscriptions: "Webhook 订阅",
+	}[capabilityKey]
+	resourceEnglish := map[string]string{
+		"integration.catalog": "Integration catalog", "integration.connectors": "Connectors", "integration.connections": "Connections",
+		"integration.connection_accounts": "Connection accounts", "integration.oauth_applications": "OAuth applications",
+		"integration.oauth_authorizations": "OAuth authorizations", "integration.secrets": "Integration secrets",
+		"integration.api_keys": "API keys", "integration.external_identities": "External identities",
+		"integration.webhook_subscriptions": "Webhook subscriptions", "integration.web_push_subscriptions": "Web push subscriptions",
+		"integration.invocations": "Integration invocations", "integration.events": "Integration events",
+	}[resourceKey]
+	resourceChinese := map[string]string{
+		"integration.catalog": "集成目录", "integration.connectors": "连接器", "integration.connections": "集成连接",
+		"integration.connection_accounts": "连接账号", "integration.oauth_applications": "OAuth 应用",
+		"integration.oauth_authorizations": "OAuth 授权", "integration.secrets": "集成密钥",
+		"integration.api_keys": "API 密钥", "integration.external_identities": "外部身份",
+		"integration.webhook_subscriptions": "Webhook 订阅", "integration.web_push_subscriptions": "Web Push 订阅",
+		"integration.invocations": "集成调用", "integration.events": "集成事件",
+	}[resourceKey]
+	operationEnglish := map[string]string{
+		"read": "View", "list": "List", "get": "View details", "validate": "Validate", "upsert": "Create or update",
+		"delete": "Delete", "disable": "Disable", "test_operation": "Test operation", "register_account": "Register account",
+		"test": "Test", "retry_background": "Retry background task", "revoke": "Revoke", "read_access": "Authorize read access",
+		"write": "Write authorized data", "options": "List options", "start": "Start", "complete": "Complete",
+		"rotate": "Rotate", "expire": "Expire", "create": "Create", "resolve": "Resolve", "cleanup_expired": "Clean up expired",
+		"replay": "Replay",
+	}[operationKey]
+	operationChinese := map[string]string{
+		"read": "查看", "list": "查看列表", "get": "查看详情", "validate": "校验", "upsert": "新建或更新",
+		"delete": "删除", "disable": "停用", "test_operation": "测试操作", "register_account": "登记账号",
+		"test": "测试", "retry_background": "重试后台任务", "revoke": "撤销", "read_access": "授权读取",
+		"write": "写入已授权数据", "options": "查看可选项", "start": "开始", "complete": "完成",
+		"rotate": "轮换", "expire": "设为过期", "create": "创建", "resolve": "解析", "cleanup_expired": "清理过期项",
+		"replay": "重放",
+	}[operationKey]
+	return actioncontract.PermissionLocalizedText{
+		"en":    {ModuleLabel: "Integrations", GroupLabel: groupEnglish, ResourceLabel: resourceEnglish, OperationLabel: operationEnglish, Label: resourceEnglish + " · " + operationEnglish, Description: "Provides access to " + resourceEnglish + " for the “" + operationEnglish + "” operation."},
+		"zh-CN": {ModuleLabel: "集成", GroupLabel: groupChinese, ResourceLabel: resourceChinese, OperationLabel: operationChinese, Label: resourceChinese + " · " + operationChinese, Description: "允许对“" + resourceChinese + "”执行“" + operationChinese + "”操作。"},
 	}
 }
 
