@@ -43,17 +43,19 @@ type InvocationQuery struct {
 
 type ProviderCallRequest struct {
 	// Source comes from the immutable host execution, never model/browser args.
-	Source            InvocationSource        `json:"source,omitempty"`
-	RequestID         string                  `json:"request_id"`
-	WorkspaceID       string                  `json:"workspace_id"`
-	ConnectorKey      string                  `json:"connector_key"`
-	ConnectionKey     string                  `json:"connection_key,omitempty"`
-	Operation         string                  `json:"operation"`
-	Payload           json.RawMessage         `json:"payload"`
-	PersistenceMode   ProviderCallPersistence `json:"persistence_mode,omitempty"`
-	MaskedDestination string                  `json:"masked_destination,omitempty"`
-	ActorID           string                  `json:"actor_id,omitempty"`
-	RoleKey           string                  `json:"role_key,omitempty"`
+	Source             InvocationSource        `json:"source,omitempty"`
+	RequestID          string                  `json:"request_id"`
+	WorkspaceID        string                  `json:"workspace_id"`
+	ConnectorKey       string                  `json:"connector_key"`
+	ConnectionKey      string                  `json:"connection_key,omitempty"`
+	Operation          string                  `json:"operation"`
+	Payload            json.RawMessage         `json:"payload"`
+	Content            *ProviderCallContent    `json:"content,omitempty"`
+	ExpectedConnection *ProviderCallTarget     `json:"expected_connection,omitempty"`
+	PersistenceMode    ProviderCallPersistence `json:"persistence_mode,omitempty"`
+	MaskedDestination  string                  `json:"masked_destination,omitempty"`
+	ActorID            string                  `json:"actor_id,omitempty"`
+	RoleKey            string                  `json:"role_key,omitempty"`
 }
 
 type InvocationSource struct {
@@ -101,6 +103,19 @@ func (r ProviderCallRequest) Validate() error {
 	}
 	if r.PersistenceMode == ProviderCallPersistenceSensitive && strings.TrimSpace(r.MaskedDestination) == "" {
 		return fmt.Errorf("Integration sensitive provider call masked_destination is required")
+	}
+	if r.ExpectedConnection != nil {
+		if r.ExpectedConnection.Validate() != nil || r.PersistenceMode != ProviderCallPersistenceSensitive || !boundedAccountWriteValue(r.RequestID, 255) || !boundedAccountWriteValue(r.WorkspaceID, 255) || !boundedAccountWriteValue(r.ConnectorKey, 255) || !boundedAccountWriteValue(r.Operation, 128) || !boundedAccountWriteValue(r.ConnectionKey, 255) || !boundedAccountWriteValue(r.ActorID, 255) || !boundedAccountWriteValue(r.RoleKey, 255) || !boundedAccountWriteValue(r.MaskedDestination, 255) || r.Source.ExecutionID == "" || len(r.Payload) > MaximumProviderCallContentBytes {
+			return fmt.Errorf("Integration guarded call requires a sensitive named connection, authenticated host source and bounded metadata")
+		}
+	}
+	if r.Content != nil {
+		if err := r.Content.Validate(); err != nil {
+			return err
+		}
+		if r.ExpectedConnection == nil {
+			return fmt.Errorf("Integration content call requires the current owner connection and operation contract")
+		}
 	}
 	return nil
 }

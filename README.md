@@ -73,3 +73,33 @@ service POST endpoints (`write-access`, `write`, `write-receipt`), with redirect
 and cookies disabled and no automatic client retry. These endpoints are not
 part of the public product HTTP adapter or browser SDK. Product confirmation
 and execution identities remain the host's responsibility.
+
+## Small generated Provider content
+
+`Operations.Call` accepts optional `ProviderCallContent` for at most 256 KiB of
+host-generated content, alongside at most 256 KiB of operation JSON metadata.
+Use `NewProviderCallContent` to freeze bytes/hash/MIME, and
+`NewProviderCallTarget` with the current owner `Connection` plus the official
+operation descriptor. The target binds configuration and secret references as
+well as the existing revision token, including changes in the same millisecond.
+Named connection, authenticated host actor/role/source and sensitive persistence
+are mandatory. A guarded JSON-only mutation may omit content.
+
+The embedded and SaaS paths use the same request. The JSON wire format bounds
+base64 bytes; Integration turns them into the existing Connector content reader.
+No generic upload route, new provider identity or file-storage service is added.
+Large files must use their existing streaming/file or Data Exchange owner.
+
+The host must first commit its immutable publication record and stable effect
+identity. Integration claims that identity before I/O. Replays cannot change the
+actor, source, target, metadata or content; failed, running and crash-interrupted
+claims never execute again. Invocation evidence retains a guarded fingerprint,
+not content, operation payload, response body or secret values. A succeeded
+replay returns the original invocation without its sensitive response. A timeout
+does not prove the effect was rejected; query the original invocation and use
+read-only source inspection. Never generate a new request ID to bypass an
+unresolved write. Provider acceptance is separate from indexing or delivery.
+
+The SaaS client checks returned routing and guarded identity and never retries
+the request automatically. Business approval, Case scope, index reconciliation
+and the local publication lifecycle remain the host's responsibility.

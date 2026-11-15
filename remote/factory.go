@@ -413,6 +413,12 @@ func (c *remoteClient) Call(ctx context.Context, request integrationsdk.Provider
 	}
 	var result integrationsdk.ProviderCallResult
 	err := c.call(ctx, http.MethodPost, "/integration/v1/operations/call", request, &result)
+	if err == nil && request.ExpectedConnection != nil {
+		v := result.Invocation
+		if v.InvocationID == "" || v.WorkspaceID != request.WorkspaceID || v.ConnectorKey != request.ConnectorKey || v.ConnectionKey != request.ConnectionKey || v.ProviderKey != request.ExpectedConnection.ProviderKey || v.Operation != request.Operation || v.Status != "succeeded" || v.Metadata["guarded_call_sha256"] != request.GuardedCallSHA256() {
+			return integrationsdk.ProviderCallResult{}, fmt.Errorf("Integration guarded provider response invalid; query the original request")
+		}
+	}
 	return result, err
 }
 
