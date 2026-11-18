@@ -208,6 +208,10 @@ type LocalWorkers interface {
 	ProcessDueProviderTasks(context.Context, int) (int, error)
 	ProcessDueReconciliations(context.Context, int) (int, error)
 	ProcessDueCredentialExpirations(context.Context, int) (int, error)
+	// RunProviderStreams owns continuously running provider sessions until ctx
+	// is cancelled. It must stop claiming work, cancel active sessions, and
+	// return only after their resources have been released.
+	RunProviderStreams(context.Context) error
 }
 
 type LocalWorkerBinding interface {
