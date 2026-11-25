@@ -3,8 +3,8 @@ module github.com/domainry/domainry-integration-sdk
 go 1.26.0
 
 require (
-	github.com/domainry/domainry-connector-sdk v0.1.21
-	github.com/domainry/domainry-foundation v0.2.21
+	github.com/domainry/domainry-connector-sdk v0.1.25
+	github.com/domainry/domainry-foundation v0.2.29
 	github.com/domainry/domainry-orm v0.1.34
 )
 
